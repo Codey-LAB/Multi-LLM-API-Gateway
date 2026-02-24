@@ -1,0 +1,28 @@
+# PyFundaments Core Dependencies (always needed)
+asyncpg
+python-dotenv
+passlib
+cryptography
+
+# Additional dependencies for specific app types:
+# Uncomment what your application needs
+
+# File operations (ML, data processing, file uploads)
+#aiofiles
+
+# Web applications (Flask-based apps, APIs)
+#Flask[async]
+
+# HTTP client operations (API calls, webhooks)
+#httpx
+#requests
+
+# Discord bots
+#discord.py
+#PyNaCl
+
+# Alternative PostgreSQL driver (if not using asyncpg)
+#psycopg2-binary
+
+# Production web server
+#waitress
