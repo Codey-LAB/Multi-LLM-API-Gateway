@@ -1,8 +1,8 @@
 # PyFundaments: A Secure Python Architecture
 # Copyright 2008-2025 - Volkan Kücükbudak
-# Apache License V. 2
+# Apache License V. 2 + esol
 # Repo: https://github.com/VolkanSah/PyFundaments
-# main.py
+# main.py for mcp client in sandbox
 # This is the main entry point of the application.
 # It now handles asynchronous initialization of the fundament modules.
 import sys
@@ -30,7 +30,8 @@ except ImportError as e:
     print(f"Error: Failed to import a fundament module: {e}")
     print("Please ensure the modules and dependencies are present.")
     sys.exit(1)
-# Debug run    
+
+# Debug run
 debug = PyFundamentsDebug()
 debug.run()
 
@@ -61,19 +62,19 @@ else:
 
 logger = logging.getLogger('main_app_loader')
 
+
 async def initialize_fundaments() -> Dict[str, Any]:
     """
     Initializes core application services conditionally based on available ENV variables.
     Only loads services for which the required configuration is present.
     """
     logger.info("Starting conditional initialization of fundament modules...")
-    
+
     fundaments = {
         "config": config_service
     }
-    
+
     # --- Database Initialization (PostgreSQL) ---
-    # Only initialize if DATABASE_URL is available
     database_url = config_service.get("DATABASE_URL")
     if database_url and database_url != "your_database_dsn_here":
         try:
@@ -88,10 +89,9 @@ async def initialize_fundaments() -> Dict[str, Any]:
         fundaments["db"] = None
 
     # --- Encryption Initialization ---
-    # Only initialize if both encryption keys are available
     master_key = config_service.get("MASTER_ENCRYPTION_KEY")
     persistent_salt = config_service.get("PERSISTENT_ENCRYPTION_SALT")
-    
+
     if master_key and persistent_salt and master_key != "your_256_bit_key_here":
         try:
             encryption_service = Encryption(master_key=master_key, salt=persistent_salt)
@@ -105,7 +105,6 @@ async def initialize_fundaments() -> Dict[str, Any]:
         fundaments["encryption"] = None
 
     # --- Access Control Initialization ---
-    # Only initialize if we have a database connection
     if fundaments["db"] is not None:
         try:
             access_control_service = AccessControl()
@@ -119,7 +118,6 @@ async def initialize_fundaments() -> Dict[str, Any]:
         fundaments["access_control"] = None
 
     # --- User Handler Initialization ---
-    # Only initialize if we have a database connection
     if fundaments["db"] is not None:
         try:
             user_handler_service = UserHandler(fundaments["db"])
@@ -133,12 +131,10 @@ async def initialize_fundaments() -> Dict[str, Any]:
         fundaments["user_handler"] = None
 
     # --- Security Manager Initialization ---
-    # Only initialize if we have the required sub-services
     available_services = {k: v for k, v in fundaments.items() if v is not None and k != "config"}
-    
-    if len(available_services) >= 1:  # At least one service beyond config
+
+    if len(available_services) >= 1:
         try:
-            # Filter out None services for Security manager
             fundament_services = {
                 k: v for k, v in {
                     "user_handler": fundaments.get("user_handler"),
@@ -146,8 +142,8 @@ async def initialize_fundaments() -> Dict[str, Any]:
                     "encryption": fundaments.get("encryption")
                 }.items() if v is not None
             }
-            
-            if fundament_services:  # Only if we have actual services
+
+            if fundament_services:
                 security_service = Security(fundament_services)
                 fundaments["security"] = security_service
                 logger.info("Security manager initialized.")
@@ -160,35 +156,52 @@ async def initialize_fundaments() -> Dict[str, Any]:
     else:
         logger.info("Insufficient services for Security manager, skipping initialization.")
         fundaments["security"] = None
-    
-    # Log what was actually initialized
+
     initialized_services = [k for k, v in fundaments.items() if v is not None]
     logger.info(f"Successfully initialized services: {', '.join(initialized_services)}")
-    
+
     return fundaments
+
 
 async def main():
     """
     The main asynchronous function of the application.
     """
     logger.info("Starting main.py...")
-    
+
     fundaments = await initialize_fundaments()
-    
+
     try:
-        # Load the actual app logic here.
-        # This is where your 'app/app.py' would be imported and run.
-        logger.info("Fundament modules are ready for the app logic.")
-        # Example:
-        # from app.app import start_application
-        # await start_application(fundaments)
-    
+        # -------------------------------------------------------
+        # APP LOADER - wählt App-Modus via APP_MODE Env-Var
+        # -------------------------------------------------------
+        app_mode = os.getenv("APP_MODE", "mcp").lower()
+
+        if app_mode == "mcp":
+            logger.info("Starte MCP Hub (app/mcp.py)...")
+            try:
+                from app.mcp import start_mcp
+                await start_mcp(fundaments)
+            except ImportError as e:
+                logger.critical(f"app/mcp.py konnte nicht geladen werden: {e}")
+                logger.critical("Stelle sicher dass FastMCP installiert ist: pip install fastmcp")
+                raise
+
+        elif app_mode == "app":
+            logger.info("Starte Standard-App (app/app.py)...")
+            from app.app import start_application
+            await start_application(fundaments)
+
+        else:
+            logger.warning(f"Unbekannter APP_MODE: '{app_mode}'. Nutze 'mcp' oder 'app'.")
+
     finally:
-        # Ensure the database pool is closed gracefully on exit (if it was initialized)
+        # Ensure the database pool is closed gracefully on exit
         if fundaments.get("db") is not None:
             await close_db_pool()
             logger.info("Database pool closed.")
         logger.info("Application shut down.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
