@@ -10,7 +10,7 @@ pinned: false
 
 # Universal MCP Hub on PyFundaments
 
-Universal MCP-Server basierend auf [PyFundaments](PyFundaments_README.md).
+Universal MCP-Server (paranoid mode on) under ESOL!
 
 ## Setup
 
