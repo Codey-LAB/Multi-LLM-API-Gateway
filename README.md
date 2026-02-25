@@ -11,13 +11,14 @@ short_description: Universal MCP Hub (Sandboxed)
 
 # Universal MCP Hub (Sandboxed)
 
-> For advanced use, have a look at [PyFundaments_README.md](PyFundaments.md) and the `docs/` folder.
+> For advanced use, have a look at [PyFundaments.md](PyFundaments.md) and the `docs/` folder.
 
 Universal MCP Server running in **paranoid mode** — built on [PyFundaments](https://github.com/VolkanSah/PyFundaments) and licensed under ESOL.
 
 The goal was simple: too many MCP servers out there with no sandboxing, hardcoded keys, and zero security thought. This one is different. No key = no tool = no crash. The Guardian (`main.py`) controls everything. `app/mcp.py` gets only what it needs, nothing more.
 
-Built with Claude (Anthropic) as a typing tool. Architecture, security decisions, and quality control by Volkan Kücükbudak.
+- MCP_HUB Built with Claude (Anthropic) as a typing tool. Architecture, security decisions
+- Pyfundaments by Volkan Sah read [ESOL](ESOL)
 
 ---
 
