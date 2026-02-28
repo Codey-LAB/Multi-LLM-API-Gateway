@@ -4,9 +4,12 @@ python-dotenv
 passlib
 cryptography
 
-# MCP Hub Dependencies (needed for app/mcp.py)
+# MCP Hub Dependencies (needed for app/*)
+# MCP over quat/hypercorn
 fastmcp
 httpx
+quart
+hypercorn
 
 # Additional dependencies for specific app types:
 # Uncomment what your application needs
@@ -18,7 +21,7 @@ httpx
 #Flask[async]
 
 # HTTP client operations (API calls, webhooks)
-#requests
+requests
 
 # Discord bots
 #discord.py
@@ -27,5 +30,3 @@ httpx
 # Alternative PostgreSQL driver (if not using asyncpg)
 #psycopg2-binary
 
-# Production web server
-#waitress
