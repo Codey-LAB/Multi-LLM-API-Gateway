@@ -28,13 +28,19 @@ To connect Claude Desktop or any MCP client to this hub:
 
 ## Architecture
 
+For `fundamenst` see [PyFundaments](PyFundaments.md)
+
+
+### HUB Architecture
 ```
 main.py  ← Guardian: initializes all services, controls what app/ receives
-  └── app/mcp.py  ← Sandbox: registers only tools with valid keys
-        ├── LLM tools    (Anthropic, Gemini, OpenRouter, HuggingFace)
-        ├── Search tools (Brave, Tavily)
-        ├── DB tools     (only if DATABASE_URL is set)
-        └── System tools (always active)
+  └── app/app.py  ← Sandboxed app file: registers only tools with valid keys!
+        ├── config.py      (parser for .pyfun if .env not set in secrets)
+        ├── mcp.py    (Anthropic, Gemini, OpenRouter, HuggingFace) (Brave, Tavily) 
+        ├── provider.py    (Anthropic, Gemini, OpenRouter, HuggingFace) (Brave, Tavily) 
+        ├── models.py 
+        ├── db_sync     (SQLITE_PATH  = "app/.hub_state.db ) no main DB! 
+        └── tools.py (tools)
 ```
 
 **The Guardian pattern:** `app/mcp.py` never reads `os.environ` directly.
