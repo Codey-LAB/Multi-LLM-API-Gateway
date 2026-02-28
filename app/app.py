@@ -19,11 +19,12 @@
 #   - Secrets stay in .env → Guardian reads them → never touched by app/*
 # =============================================================================
 
-from quart import Quart, request, jsonify  # async Flask — required for async providers + Neon DB
+from quart import Quart, request, jsonify  # async Flask — ASGI compatible
 import logging
-from waitress import serve                  # WSGI server — keeps HTTP non-blocking alongside asyncio
-import threading                            # bank-pattern: each blocking service gets its own thread
-import requests                             # sync HTTP for health check worker
+from hypercorn.asyncio import serve        # ASGI server — async native, replaces waitress
+from hypercorn.config import Config        # hypercorn config
+import threading                           # for future tools that need own threads
+import requests                            # sync HTTP for future tool workers
 import time
 from datetime import datetime
 import asyncio
@@ -34,7 +35,7 @@ from typing import Dict, Any, Optional
 # Each module reads its own config from app/.pyfun independently.
 # NO fundaments passed into these modules!
 # =============================================================================
-from . import mcp                   # MCP transport layer (stdio / SSE)
+from . import mcp                   # MCP transport layer (SSE via Quart route)
 from . import config as app_config  # app/.pyfun parser — used only in app/*
 # from . import providers    # API provider registry — reads app/.pyfun
 # from . import models       # Model config + token/rate limits — reads app/.pyfun
@@ -64,38 +65,6 @@ logger_config = logging.getLogger('config')
 # =============================================================================
 app = Quart(__name__)
 START_TIME = datetime.utcnow()
-
-# =============================================================================
-# Background workers
-# =============================================================================
-def start_mcp_in_thread() -> None:
-    """
-    Starts the MCP Hub (stdio or SSE) in its own thread with its own event loop.
-    Mirrors the bank-thread pattern from the Discord bot architecture.
-    mcp.py reads its own config from app/.pyfun — no fundaments passed in.
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(mcp.start_mcp())
-    finally:
-        loop.close()
-
-
-def health_check_worker(port: int) -> None:
-    """
-    Periodic self-ping to keep the app alive on hosting platforms (e.g. HuggingFace).
-    Runs in its own daemon thread — does not block the main loop.
-    Port passed directly — no global state needed.
-    """
-    while True:
-        time.sleep(3600)
-        try:
-            response = requests.get(f"http://127.0.0.1:{port}/")
-            logger.info(f"Health check ping: {response.status_code}")
-        except Exception as e:
-            logger.error(f"Health check failed: {e}")
-
 
 # =============================================================================
 # Quart Routes
@@ -138,6 +107,16 @@ async def crypto_endpoint():
     return jsonify({"status": "not_implemented"}), 501
 
 
+@app.route("/mcp", methods=["GET", "POST"])
+async def mcp_endpoint():
+    """
+    MCP SSE Transport endpoint — routed through Quart/hypercorn.
+    All MCP traffic passes through here — enables interception, logging,
+    auth checks, rate limiting, payload transformation before reaching MCP.
+    """
+    return await mcp.handle_request(request)
+
+
 # Future routes (uncomment when ready):
 # @app.route("/discord", methods=["POST"])
 # async def discord_interactions():
@@ -153,6 +132,9 @@ async def crypto_endpoint():
 # async def git_webhook():
 #     """GitHub / GitLab webhook handler."""
 #     pass
+
+
+
 
 
 # =============================================================================
@@ -206,41 +188,21 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
     # models.initialize()     # reads app/.pyfun [MODELS]
     # tools.initialize()      # reads app/.pyfun [TOOLS]
 
+    # --- Initialize MCP (registers tools, prepares SSE handler) ---
+    await mcp.initialize()
+
     # --- Read PORT from app/.pyfun [HUB] ---
     port = int(app_config.get_hub().get("HUB_PORT", "7860"))
 
-    # --- Start MCP Hub in its own thread ---
-    mcp_thread = threading.Thread(target=start_mcp_in_thread, daemon=True)
-    mcp_thread.start()
-    logger.info("MCP Hub thread started.")
+    # --- Configure hypercorn ---
+    config = Config()
+    config.bind = [f"0.0.0.0:{port}"]
 
-    await asyncio.sleep(1)
+    logger.info(f"Starting hypercorn on port {port}...")
+    logger.info("All services running.")
 
-    # --- Start health check worker ---
-    health_thread = threading.Thread(
-        target=health_check_worker,
-        args=(port,),
-        daemon=True
-    )
-    health_thread.start()
-
-    # --- Start Quart via Waitress in its own thread ---
-    def run_server():
-        serve(app, host="0.0.0.0", port=port)
-
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    logger.info(f"HTTP server started on port {port}.")
-
-    logger.info("All services running. Entering heartbeat loop...")
-
-    # --- Heartbeat loop — keeps Guardian's async context alive ---
-    try:
-        while True:
-            await asyncio.sleep(60)
-            logger.debug("Heartbeat.")
-    except KeyboardInterrupt:
-        logger.info("Shutdown signal received.")
+    # --- Run hypercorn — blocks until shutdown ---
+    await serve(app, config)
 
 
 # =============================================================================
