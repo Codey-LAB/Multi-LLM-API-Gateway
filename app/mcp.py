@@ -64,6 +64,7 @@ async def initialize() -> None:
     _register_search_tools(_mcp)
     # _register_db_tools(_mcp)   # uncomment when db_sync is ready
     _register_system_tools(_mcp)
+    _register_polymarket_tools(_mcp)
 
     logger.info("MCP Hub initialized.")
 
