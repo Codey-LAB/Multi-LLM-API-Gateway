@@ -190,9 +190,6 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
 
     # --- Initialize MCP (registers tools, prepares SSE handler) ---
     await db_sync.initialize()
-    await providers.initialize()
-    await models.initialize()
-    await tools.initialize()
     await mcp.initialize()
 
     # --- Read PORT from app/.pyfun [HUB] ---
