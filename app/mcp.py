@@ -12,32 +12,53 @@
 #
 #   MCP SSE transport runs through Quart/hypercorn via /mcp route.
 #   All MCP traffic can be intercepted, logged, and transformed in app.py
-#   before reaching the MCP handler — this is by design.
+#   before reaching this handler — this is by design.
 #
 # TOOL REGISTRATION PRINCIPLE:
-#   Tools are only registered if their required ENV key exists.
-#   No key = no tool = no crash. Server always starts, just with fewer tools.
-#   ENV key NAMES come from app/.pyfun — values are never touched here.
+#   Tools are registered via providers.py and models.py — NOT hardcoded here.
+#   No key = no provider = no tool = no crash.
+#   Server always starts, just with fewer tools.
+#   Adding a new provider = update .pyfun + providers.py only. Never touch mcp.py.
+#
+# DEPENDENCY CHAIN (app/* only, no fundaments!):
+#   config.py    → parses app/.pyfun — single source of truth
+#   providers.py → LLM + Search provider registry + fallback chain
+#   models.py    → model limits, costs, capabilities from .pyfun [MODELS]
+#   db_sync.py   → internal SQLite IPC (app/* state) — NOT postgresql.py!
+#   mcp.py       → registers tools only, delegates all logic to providers/*
 # =============================================================================
 
-import asyncio
 import logging
 import os
 from typing import Dict, Any
 
 from . import config as app_config  # reads app/.pyfun — only config source for app/*
+from . import providers             # LLM + Search provider registry
+from . import models                # Model limits + capabilities
 
 logger = logging.getLogger('mcp')
 
+# =============================================================================
 # Global MCP instance — initialized once via initialize()
+# =============================================================================
 _mcp = None
 
+
+# =============================================================================
+# Initialization — called exclusively by app/app.py
+# =============================================================================
 
 async def initialize() -> None:
     """
     Initializes the MCP instance and registers all tools.
-    Called once by app/app.py during startup.
-    No fundaments passed in — sandboxed.
+    Called once by app/app.py during startup sequence.
+    No fundaments passed in — fully sandboxed.
+
+    Registration order:
+        1. LLM tools       → via providers.py (key-gated)
+        2. Search tools    → via providers.py (key-gated)
+        3. System tools    → always registered, no key required
+        4. DB tools        → uncomment when db_sync.py is ready
     """
     global _mcp
 
@@ -59,287 +80,215 @@ async def initialize() -> None:
         )
     )
 
-    # --- Register tools ---
+    # --- Initialize provider + model registries ---
+    # providers.py reads .pyfun + checks ENV keys — no fundaments involved
+    providers.initialize()
+    models.initialize()
+
+    # --- Register MCP tools ---
     _register_llm_tools(_mcp)
     _register_search_tools(_mcp)
-    # _register_db_tools(_mcp)   # uncomment when db_sync is ready
     _register_system_tools(_mcp)
-    _register_polymarket_tools(_mcp)
+    # _register_db_tools(_mcp)  # uncomment when db_sync.py is ready
 
     logger.info("MCP Hub initialized.")
 
 
+# =============================================================================
+# Request Handler — Quart /mcp route entry point
+# =============================================================================
+
 async def handle_request(request) -> None:
     """
     Handles incoming MCP SSE requests routed through Quart /mcp endpoint.
-    This is the interceptor point — add auth, logging, rate limiting here.
+    This is the central interceptor point for all MCP traffic.
+    Add auth, logging, rate limiting, payload transformation here as needed.
     """
     if _mcp is None:
         logger.error("MCP not initialized — call initialize() first.")
         from quart import jsonify
         return jsonify({"error": "MCP not initialized"}), 503
 
-    # --- Interceptor hooks (add as needed) ---
+    # --- Interceptor hooks (uncomment as needed) ---
     # logger.debug(f"MCP request: {request.method} {request.path}")
     # await _check_auth(request)
     # await _rate_limit(request)
     # await _log_payload(request)
 
-    # --- Forward to FastMCP SSE handler ---
     return await _mcp.handle_sse(request)
 
 
 # =============================================================================
-# Tool registration helpers
+# Tool Registration — delegates all logic to providers.py / models.py
 # =============================================================================
 
 def _register_llm_tools(mcp) -> None:
-    """Register LLM tools based on active providers in app/.pyfun + ENV key check."""
-    active = app_config.get_active_llm_providers()
+    """
+    Register LLM completion tool.
+    Provider selection, fallback chain, and key checks are handled by providers.py.
+    Adding a new LLM provider = update .pyfun + providers.py. Never touch this function.
+    """
+    if not providers.list_active_llm():
+        logger.info("No active LLM providers — llm_complete tool skipped.")
+        return
 
-    for name, cfg in active.items():
-        env_key = cfg.get("env_key", "")
-        if not env_key or not os.getenv(env_key):
-            logger.info(f"LLM provider '{name}' skipped — ENV key '{env_key}' not set.")
-            continue
+    @mcp.tool()
+    async def llm_complete(
+        prompt: str,
+        provider: str = None,
+        model: str = None,
+        max_tokens: int = 1024,
+    ) -> str:
+        """
+        Send a prompt to any configured LLM provider.
+        Automatically follows the fallback chain defined in .pyfun if a provider fails.
 
-        if name == "anthropic":
-            import httpx
-            _key       = os.getenv(env_key)
-            _api_ver   = cfg.get("api_version_header", "2023-06-01")
-            _base_url  = cfg.get("base_url", "https://api.anthropic.com/v1")
-            _def_model = cfg.get("default_model", "claude-haiku-4-5-20251001")
+        Args:
+            prompt:     The input text to send to the model.
+            provider:   Provider name (e.g. 'anthropic', 'gemini', 'openrouter', 'huggingface').
+                        Defaults to default_provider from .pyfun [TOOL.llm_complete].
+            model:      Model name override. Defaults to provider's default_model in .pyfun.
+            max_tokens: Maximum tokens in the response. Default: 1024.
 
-            @mcp.tool()
-            async def anthropic_complete(
-                prompt: str,
-                model: str = _def_model,
-                max_tokens: int = 1024
-            ) -> str:
-                """Send a prompt to Anthropic Claude."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(
-                        f"{_base_url}/messages",
-                        headers={
-                            "x-api-key": _key,
-                            "anthropic-version": _api_ver,
-                            "content-type": "application/json"
-                        },
-                        json={
-                            "model": model,
-                            "max_tokens": max_tokens,
-                            "messages": [{"role": "user", "content": prompt}]
-                        },
-                        timeout=60.0
-                    )
-                    r.raise_for_status()
-                    return r.json()["content"][0]["text"]
+        Returns:
+            Model response as plain text string.
+        """
+        return await providers.llm_complete(
+            prompt=prompt,
+            provider_name=provider,
+            model=model,
+            max_tokens=max_tokens,
+        )
 
-            logger.info(f"Tool registered: anthropic_complete (model: {_def_model})")
-
-        elif name == "gemini":
-            import httpx
-            _key       = os.getenv(env_key)
-            _base_url  = cfg.get("base_url", "https://generativelanguage.googleapis.com/v1beta")
-            _def_model = cfg.get("default_model", "gemini-2.0-flash")
-
-            @mcp.tool()
-            async def gemini_complete(
-                prompt: str,
-                model: str = _def_model,
-                max_tokens: int = 1024
-            ) -> str:
-                """Send a prompt to Google Gemini."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(
-                        f"{_base_url}/models/{model}:generateContent",
-                        params={"key": _key},
-                        json={
-                            "contents": [{"parts": [{"text": prompt}]}],
-                            "generationConfig": {"maxOutputTokens": max_tokens}
-                        },
-                        timeout=60.0
-                    )
-                    r.raise_for_status()
-                    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-            logger.info(f"Tool registered: gemini_complete (model: {_def_model})")
-
-        elif name == "openrouter":
-            import httpx
-            _key       = os.getenv(env_key)
-            _base_url  = cfg.get("base_url", "https://openrouter.ai/api/v1")
-            _def_model = cfg.get("default_model", "mistralai/mistral-7b-instruct")
-            _referer   = os.getenv("APP_URL", "https://huggingface.co")
-
-            @mcp.tool()
-            async def openrouter_complete(
-                prompt: str,
-                model: str = _def_model,
-                max_tokens: int = 1024
-            ) -> str:
-                """Send a prompt via OpenRouter (100+ models)."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(
-                        f"{_base_url}/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {_key}",
-                            "HTTP-Referer": _referer,
-                            "content-type": "application/json"
-                        },
-                        json={
-                            "model": model,
-                            "max_tokens": max_tokens,
-                            "messages": [{"role": "user", "content": prompt}]
-                        },
-                        timeout=60.0
-                    )
-                    r.raise_for_status()
-                    return r.json()["choices"][0]["message"]["content"]
-
-            logger.info(f"Tool registered: openrouter_complete (model: {_def_model})")
-
-        elif name == "huggingface":
-            import httpx
-            _key       = os.getenv(env_key)
-            _base_url  = cfg.get("base_url", "https://api-inference.huggingface.co/models")
-            _def_model = cfg.get("default_model", "mistralai/Mistral-7B-Instruct-v0.3")
-
-            @mcp.tool()
-            async def hf_inference(
-                prompt: str,
-                model: str = _def_model,
-                max_tokens: int = 512
-            ) -> str:
-                """Send a prompt to HuggingFace Inference API."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(
-                        f"{_base_url}/{model}/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {_key}",
-                            "content-type": "application/json"
-                        },
-                        json={
-                            "model": model,
-                            "max_tokens": max_tokens,
-                            "messages": [{"role": "user", "content": prompt}]
-                        },
-                        timeout=120.0
-                    )
-                    r.raise_for_status()
-                    return r.json()["choices"][0]["message"]["content"]
-
-            logger.info(f"Tool registered: hf_inference (model: {_def_model})")
-
-        else:
-            logger.info(f"LLM provider '{name}' has no tool handler yet — skipped.")
+    logger.info(f"Tool registered: llm_complete (active providers: {providers.list_active_llm()})")
 
 
 def _register_search_tools(mcp) -> None:
-    """Register search tools based on active providers in app/.pyfun + ENV key check."""
-    active = app_config.get_active_search_providers()
+    """
+    Register web search tool.
+    Provider selection, fallback chain, and key checks are handled by providers.py.
+    Adding a new search provider = update .pyfun + providers.py. Never touch this function.
+    """
+    if not providers.list_active_search():
+        logger.info("No active search providers — web_search tool skipped.")
+        return
 
-    for name, cfg in active.items():
-        env_key = cfg.get("env_key", "")
-        if not env_key or not os.getenv(env_key):
-            logger.info(f"Search provider '{name}' skipped — ENV key '{env_key}' not set.")
-            continue
+    @mcp.tool()
+    async def web_search(
+        query: str,
+        provider: str = None,
+        max_results: int = 5,
+    ) -> str:
+        """
+        Search the web via any configured search provider.
+        Automatically follows the fallback chain defined in .pyfun if a provider fails.
 
-        if name == "brave":
-            import httpx
-            _key         = os.getenv(env_key)
-            _base_url    = cfg.get("base_url", "https://api.search.brave.com/res/v1/web/search")
-            _def_results = int(cfg.get("default_results", "5"))
-            _max_results = int(cfg.get("max_results", "20"))
+        Args:
+            query:       Search query string.
+            provider:    Provider name (e.g. 'brave', 'tavily').
+                         Defaults to default_provider from .pyfun [TOOL.web_search].
+            max_results: Maximum number of results to return. Default: 5.
 
-            @mcp.tool()
-            async def brave_search(query: str, count: int = _def_results) -> str:
-                """Search the web via Brave Search API."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.get(
-                        _base_url,
-                        headers={
-                            "Accept": "application/json",
-                            "X-Subscription-Token": _key
-                        },
-                        params={"q": query, "count": min(count, _max_results)},
-                        timeout=30.0
-                    )
-                    r.raise_for_status()
-                    results = r.json().get("web", {}).get("results", [])
-                    if not results:
-                        return "No results found."
-                    return "\n\n".join([
-                        f"{i}. {res.get('title', '')}\n   {res.get('url', '')}\n   {res.get('description', '')}"
-                        for i, res in enumerate(results, 1)
-                    ])
+        Returns:
+            Formatted search results as plain text string.
+        """
+        return await providers.search(
+            query=query,
+            provider_name=provider,
+            max_results=max_results,
+        )
 
-            logger.info("Tool registered: brave_search")
-
-        elif name == "tavily":
-            import httpx
-            _key         = os.getenv(env_key)
-            _base_url    = cfg.get("base_url", "https://api.tavily.com/search")
-            _def_results = int(cfg.get("default_results", "5"))
-            _incl_answer = cfg.get("include_answer", "true").lower() == "true"
-
-            @mcp.tool()
-            async def tavily_search(query: str, max_results: int = _def_results) -> str:
-                """AI-optimized web search via Tavily."""
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(
-                        _base_url,
-                        json={
-                            "api_key": _key,
-                            "query": query,
-                            "max_results": max_results,
-                            "include_answer": _incl_answer
-                        },
-                        timeout=30.0
-                    )
-                    r.raise_for_status()
-                    data = r.json()
-                    parts = []
-                    if data.get("answer"):
-                        parts.append(f"Summary: {data['answer']}")
-                    for res in data.get("results", []):
-                        parts.append(
-                            f"- {res['title']}\n  {res['url']}\n  {res.get('content', '')[:200]}..."
-                        )
-                    return "\n\n".join(parts)
-
-            logger.info("Tool registered: tavily_search")
-
-        else:
-            logger.info(f"Search provider '{name}' has no tool handler yet — skipped.")
+    logger.info(f"Tool registered: web_search (active providers: {providers.list_active_search()})")
 
 
 def _register_system_tools(mcp) -> None:
-    """System tools — always registered, no ENV key required."""
+    """
+    System tools — always registered, no ENV key required.
+    These tools expose hub status and model info without touching secrets.
+    """
 
     @mcp.tool()
     def list_active_tools() -> Dict[str, Any]:
-        """Show active providers and configured integrations (key names only, never values)."""
-        llm    = app_config.get_active_llm_providers()
-        search = app_config.get_active_search_providers()
-        hub    = app_config.get_hub()
+        """
+        List all active providers and registered tools.
+        Shows ENV key names only — never exposes values or secrets.
+
+        Returns:
+            Dict with hub info, active LLM providers, active search providers,
+            and available model names per provider.
+        """
+        hub = app_config.get_hub()
         return {
-            "hub":                    hub.get("HUB_NAME", "Universal MCP Hub"),
-            "version":                hub.get("HUB_VERSION", ""),
-            "active_llm_providers":   [n for n, c in llm.items()    if os.getenv(c.get("env_key", ""))],
-            "active_search_providers":[n for n, c in search.items() if os.getenv(c.get("env_key", ""))],
+            "hub":                     hub.get("HUB_NAME", "Universal MCP Hub"),
+            "version":                 hub.get("HUB_VERSION", ""),
+            "active_llm_providers":    providers.list_active_llm(),
+            "active_search_providers": providers.list_active_search(),
+            "available_models":        models.list_all(),
         }
+
     logger.info("Tool registered: list_active_tools")
 
     @mcp.tool()
     def health_check() -> Dict[str, str]:
-        """Health check for monitoring and HuggingFace Spaces."""
+        """
+        Health check endpoint for HuggingFace Spaces and monitoring systems.
+
+        Returns:
+            Dict with service status.
+        """
         return {"status": "ok", "service": "Universal MCP Hub"}
+
     logger.info("Tool registered: health_check")
+
+    @mcp.tool()
+    def get_model_info(model_name: str) -> Dict[str, Any]:
+        """
+        Get limits, costs, and capabilities for a specific model.
+
+        Args:
+            model_name: Model name as defined in .pyfun [MODELS] (e.g. 'claude-sonnet-4-6').
+
+        Returns:
+            Dict with context size, max output tokens, rate limits, costs, and capabilities.
+            Returns empty dict if model is not configured in .pyfun.
+        """
+        return models.get(model_name)
+
+    logger.info("Tool registered: get_model_info")
+
+
+# =============================================================================
+# DB Tools — uncomment when db_sync.py is ready
+# =============================================================================
+
+# def _register_db_tools(mcp) -> None:
+#     """
+#     Register internal SQLite query tool.
+#     Uses db_sync.py (app/* internal SQLite) — NOT postgresql.py (Guardian-only)!
+#     Only SELECT queries are permitted — read-only by design.
+#     """
+#     from . import db_sync
+#
+#     @mcp.tool()
+#     async def db_query(query: str) -> list:
+#         """
+#         Execute a read-only SELECT query on the internal hub state database.
+#         Only SELECT statements are allowed — write operations are blocked.
+#
+#         Args:
+#             query: SQL SELECT statement to execute.
+#
+#         Returns:
+#             List of result rows as dicts.
+#         """
+#         return await db_sync.query(query)
+#
+#     logger.info("Tool registered: db_query")
 
 
 # =============================================================================
 # Direct execution guard
 # =============================================================================
+
 if __name__ == '__main__':
-    print("WARNING: Run via main.py, not directly.")
+    print("WARNING: Run via main.py → app.py, not directly.")
