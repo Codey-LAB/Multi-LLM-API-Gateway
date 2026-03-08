@@ -177,7 +177,8 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
     # await tools.initialize()      # reads app/.pyfun [TOOLS]
 
     # --- Initialize MCP (registers tools, prepares SSE handler) ---
-    await db_sync.initialize()
+    # db_sync only if cloud_DB used to! 
+    # await db_sync.initialize()
     await mcp.initialize()
 
     # --- Read PORT from app/.pyfun [HUB] ---
