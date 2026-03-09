@@ -96,6 +96,50 @@ For private Spaces, add your HF token:
 ---
 
 ## Architecture
+```
+UMH
+├── main.py # run main!
+├── README.md
+├── ESOL
+├── LICENSE
+├── PyFundaments.md
+├── PyFundaments – Function Overview.md
+├── SECURITY.md
+├── requirements.txt
+├── .gitignore
+├── example.Dockerfile
+├── example-mcp___.env
+├── DESKTOP_CLIENT
+│   └── hub.py        ← light MCP Desktop client
+├── app/
+│   ├── __init__.py
+│   ├── app.py        ←  sandboxed Orchestrator
+│   ├── mcp.py        ← MCP SSE server (FastMCP + Quart)
+│   ├── tools.py      ← Tool registry (from .pyfun)
+│   ├── provider.py   ← LLM + Search execution + fallback
+│   ├── models.py     ← Model limits + costs
+│   ├── db_sync.py    ← Internal SQLite state (IPC)
+│   └── config.py     ← .pyfun parser (single source of truth)
+├── fundaments/ # do not touch!
+│   ├── __init__.py
+│   ├── access_control.py
+│   ├── config_handler.py
+│   ├── encryption.py
+│   ├── postgresql.py
+│   ├── security.py
+│   └── user_handler.py
+└── docs/
+    ├── access_control.py.md
+    ├── encryption.py.md
+    ├── postgresql.py.md
+    ├── security.py.md
+    └── user_handler.py.md
+
+
+
+```
+
+
 
 ```
         └── main.py  ← Guardian: bootstraps all services, controls injection
