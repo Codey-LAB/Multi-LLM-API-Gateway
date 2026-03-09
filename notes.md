@@ -3,7 +3,7 @@
 
 
 
-Minimum needed envs! Not .pyfun! 
+Minimum needed envs!  .pyfun file!
 
 Add in privat secrets
 ```
