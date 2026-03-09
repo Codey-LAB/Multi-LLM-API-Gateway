@@ -33,7 +33,7 @@ import logging
 import httpx
 
 from . import config
-
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("providers")
 
 
@@ -64,6 +64,8 @@ class BaseProvider:
         Shared HTTP POST — used by all providers.
         Raises httpx.HTTPStatusError on non-2xx responses.
         """
+        safe_url = url.split("?")[0]  # strip query params from logs
+        logger.debug(f"POST → {safe_url}")
         async with httpx.AsyncClient() as client:
             r = await client.post(
                 url,
@@ -73,6 +75,7 @@ class BaseProvider:
             )
             r.raise_for_status()
             return r.json()
+
 
 
 # =============================================================================
@@ -241,7 +244,7 @@ async def llm_complete(
             try:
                 result = await provider.complete(prompt, model, max_tokens)
                 logger.info(f"Response from provider: '{current}'")
-                return result
+                return f"[{current}] {result}"
             except Exception as e:
                 logger.warning(f"Provider '{current}' failed: {e} — trying fallback.")
 
