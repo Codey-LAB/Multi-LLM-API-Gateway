@@ -10,10 +10,14 @@ short_description: 'Universal MCP Server(Sandboxed) built on PyFundaments '
 ---
 
 # Universal MCP Hub (Sandboxed)
+The only real (MCP) HUB you need!
 
-> Universal MCP Server running on simpleCity and **paranoidMode** — built on [PyFundaments](PyFundaments.md).
+> running on simpleCity and **paranoidMode** — built on [PyFundaments](PyFundaments.md).
 
-Built because too many MCP servers exist with no sandboxing, hardcoded keys, and zero security thought. This one is different.
+... because too many (Hype) MCP servers exist with no sandboxing, hardcoded keys, and zero security thought. 
+
+
+#### This one is different.
 
 - **No key → no tool → no crash**
 - `main.py` = Guardian (controls everything, nothing bypasses it)
@@ -26,11 +30,13 @@ Built because too many MCP servers exist with no sandboxing, hardcoded keys, and
 
 ## Quick Start
 
-1. **Fork** this Space
+1. **Fork/Clone** this Repo (Space)
 2. Add your API keys as **Space Secrets** (Settings → Variables and secrets)
 3. Space starts automatically — only tools with valid keys are registered
 
 That's it. No config files to edit, no code to touch.
+
+[Demo for `cloning space`](https://huggingface.co/spaces/codey-lab/Universal-MCP-Hub-DEMO) on HF
 
 ---
 
@@ -89,7 +95,7 @@ For private Spaces, add your HF token:
 #### Perfect for non-public spaces
 
 
-- A standalone PySide6 desktop client is included: `mcp_desktop.py`
+- A standalone PySide6 desktop client is included: `hub.py`, with help of ClaudeAi, was to lazy 😄
 - Features: Chat tab, Tools inspector, Settings (provider/model override, font size), Logs — all saved locally in `~/.mcp_desktop.json`. Token never leaves your machine except to your own Hub.
 - more about the [Desktop Client](DESKTOP_CLIENT/README.md)
 
@@ -164,20 +170,20 @@ timeout_sec      = "60"
 [TOOL.llm_complete_END]
 ```
 
-Add a new tool = edit `.pyfun` only. No code changes required.
+Add a new tool/Provider/API_URL or something else just = edit `.pyfun` only. No code changes required.
 
 ---
 
 ## Security Design
 
-- All API keys via HF Space Secrets — never hardcoded, never in `.pyfun`
+- All API keys via e.g. HF Space Secrets — never hardcoded, never in `.pyfun`
 - `list_active_tools` returns key **names** only, never values
 - DB tools are `SELECT`-only, enforced at application level
 - Direct execution of `app/*` is blocked by design
 - `app/*` has zero access to `fundaments/` internals
 - Built on [PyFundaments](PyFundaments.md) — security-first Python architecture
 
-> PyFundaments is not perfect. But it's more secure than most of what runs in production today.
+> PyFundaments is not perfect. But it's more secure than most of what runs in production today!
 
 ---
 
@@ -208,3 +214,5 @@ By using this software you agree to all ethical constraints defined in ESOL v1.1
 ---
 
 *Architecture, security decisions, and PyFundaments by Volkan Kücükbudak. Built with Claude (Anthropic) as a typing assistant for docs & some bugs*
+
+> crafted with passion by Volkan Kücükbudak - just want to feel how it works, mean i do not need it, have cli 😄
