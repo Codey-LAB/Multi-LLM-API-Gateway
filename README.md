@@ -15,7 +15,7 @@ short_description: 'Universal MCP Server(Sandboxed) built on PyFundaments '
 #### Universal MCP Server running in **paranoid mode** — built on [PyFundaments](PyFundaments.md) and licensed under ESOL.
 
 **Source:**
-[https://github.com/VolkanSah/Universal-MCP-Hub](https://github.com/VolkanSah/Universal-MCP-Hub)
+[Universal-MCP-Hub](https://github.com/VolkanSah/Universal-MCP-Hub)
 
 ---
 
