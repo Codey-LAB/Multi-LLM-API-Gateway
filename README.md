@@ -1,69 +1,65 @@
+---
+title: Universal MCP Hub
+emoji: 👀
+colorFrom: indigo
+colorTo: red
+sdk: docker
+pinned: false
+license: apache-2.0
+short_description: 'Universal MCP Server(Sandboxed) built on PyFundaments '
+---
+
+
 # Universal MCP Hub (Sandboxed)
+
 #### Universal MCP Server running in **paranoid mode** — built on [PyFundaments](PyFundaments.md) and licensed under ESOL.
 
-
-
-The goal was simple: too many MCP servers out there with no sandboxing, hardcoded keys, and zero security thought. This one is different. No key = no tool = no crash. The Guardian (`main.py`) controls everything. `app/mcp.py` gets only what it needs, nothing more.
-
-- MCP_HUB Built with Claude (Anthropic) as a typing tool. Architecture, security decisions
-- Pyfundaments by Volkan Sah read [ESOL](ESOL)
+**Source:**
+[https://github.com/VolkanSah/Universal-MCP-Hub](https://github.com/VolkanSah/Universal-MCP-Hub)
 
 ---
 
-## MCP Client Configuration (SSE)
+## Overview
 
-To connect Claude Desktop or any MCP client to this hub:
+The goal was simple: too many MCP servers out there with no sandboxing, hardcoded keys, and zero security thought. 
 
-```json
-{
-  "mcpServers": {
-    "pyfundaments-hub": {
-      "url": "https://YOUR_USERNAME-universal-mcp-hub.hf.space/sse"
-    }
-  }
-}
-```
+This one is different.
+
+* No key → no tool
+* No tool → no crash
+* `main.py` = Guardian (controls everything)
+* `app/mcp.py` receives only injected, validated services
 
 ---
 
-## Architecture
+## Foundation
 
-For `fundamenst` see [PyFundaments](PyFundaments.md)
+* Based on:
 
+  * [PyFundaments](PyFundaments.md)
+  * [PyFundaments – Function Overview](Fundaments-–-Function---Overview.md)
 
-### HUB Architecture
-```
-main.py  ← Guardian: initializes all services, controls what app/ receives
-  └── app/app.py  ← Sandboxed app file: registers only tools with valid keys!
-        ├── config.py      (parser for .pyfun if .env not set in secrets)
-        ├── mcp.py    (Anthropic, Gemini, OpenRouter, HuggingFace) (Brave, Tavily) 
-        ├── provider.py    (Anthropic, Gemini, OpenRouter, HuggingFace) (Brave, Tavily) 
-        ├── models.py 
-        ├── db_sync     (SQLITE_PATH  = "app/.hub_state.db ) no main DB! 
-        └── tools.py (tools)
-```
+* Project details:
 
-**The Guardian pattern:** `app/mcp.py` never reads `os.environ` directly.
-It receives a `fundaments` dict from `main.py` — and only what `main.py` decides to give it.
+  * [README_MCP_HUB.md](README_MCP_HUB.md)
 
 ---
 
-## Security Notes
+## Documentation
 
-- All API keys loaded via Secrets (env vars) — never hardcoded
-- `list_active_tools` returns key **names** only, never values
-- DB tools are read-only by design (`SELECT` only, enforced at application level)
-- Direct execution of `app/mcp.py` is blocked by design
-- Built on PyFundaments — a security-first Python architecture for developers
-
-> PyFundaments is not perfect. But it's more secure than most of what runs in production.
+* [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+* [SECURITY.md](SECURITY.md)
+* [CODEY_STAR_REPORT.md](CODEY_STAR_REPORT.md)
 
 ---
 
 ## License
 
-Apache License 2.0 + [ESOL 1.1](https://github.com/VolkanSah/ESOL)
+This work is dual-licensed under:
 
----
+* [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+* [Ethical Security Operations License (ESOL v1.1)](ESOL)
 
-*"I use AI as a tool, not as a replacement for thinking."* — Volkan Kücükbudak
+The ESOL is a mandatory, non-severable condition of use.
+By using this software, you agree to all ethical constraints defined in the ESOL v1.1.
+
