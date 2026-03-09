@@ -9,57 +9,173 @@ license: apache-2.0
 short_description: 'Universal MCP Server(Sandboxed) built on PyFundaments '
 ---
 
-
 # Universal MCP Hub (Sandboxed)
 
-#### Universal MCP Server running in **paranoid mode** — built on [PyFundaments](PyFundaments.md) and licensed under ESOL.
+> Universal MCP Server running in **paranoid mode** — built on [PyFundaments](PyFundaments.md) and licensed under [ESOL v1.1](ESOL).
 
-**Source:**
-[Universal-MCP-Hub](https://github.com/VolkanSah/Universal-MCP-Hub)
+Built because too many MCP servers exist with no sandboxing, hardcoded keys, and zero security thought. This one is different.
+
+- **No key → no tool → no crash**
+- `main.py` = Guardian (controls everything, nothing bypasses it)
+- `app/app.py` receives only injected, validated services — never reads `os.environ` directly
+- Every tool is registered dynamically — only if the API key exists
+
+> *"I use AI as a tool, not as a replacement for thinking."* — Volkan Kücükbudak
 
 ---
 
-## Overview
+## Quick Start
 
-The goal was simple: too many MCP servers out there with no sandboxing, hardcoded keys, and zero security thought. 
+1. **Fork** this Space
+2. Add your API keys as **Space Secrets** (Settings → Variables and secrets)
+3. Space starts automatically — only tools with valid keys are registered
 
-This one is different.
+That's it. No config files to edit, no code to touch.
 
-* No key → no tool
-* No tool → no crash
-* `main.py` = Guardian (controls everything)
-* `app/mcp.py` receives only injected, validated services
+---
+
+## Available Tools
+
+Tools are registered automatically based on which keys you configure. No key = tool doesn't exist. No crashes, no errors, no exposed secrets.
+
+| Secret | Tool | Description |
+| :--- | :--- | :--- |
+| `ANTHROPIC_API_KEY` | `llm_complete` | Claude Haiku / Sonnet / Opus |
+| `GEMINI_API_KEY` | `llm_complete` | Gemini Flash / Pro |
+| `OPENROUTER_API_KEY` | `llm_complete` | 100+ models via OpenRouter |
+| `HF_TOKEN` | `llm_complete` | HuggingFace Inference API |
+| `BRAVE_API_KEY` | `web_search` | Web Search (independent index) |
+| `TAVILY_API_KEY` | `web_search` | AI-optimized Search |
+| `DATABASE_URL` | `db_query` | Read-only DB access (SELECT only) |
+| *(always active)* | `list_active_tools` | Lists all currently active tools |
+| *(always active)* | `health_check` | System health + uptime |
+
+All LLM providers share a single `llm_complete` tool with automatic **fallback chain**: `anthropic → gemini → openrouter → huggingface`
+
+---
+
+## MCP Client Configuration (SSE)
+
+Connect Claude Desktop or any MCP-compatible client:
+
+```json
+{
+  "mcpServers": {
+    "universal-mcp-hub": {
+      "url": "https://YOUR_USERNAME-universal-mcp-hub.hf.space/sse"
+    }
+  }
+}
+```
+
+For private Spaces, add your HF token:
+
+```json
+{
+  "mcpServers": {
+    "universal-mcp-hub": {
+      "url": "https://YOUR_USERNAME-universal-mcp-hub.hf.space/sse",
+      "headers": {
+        "Authorization": "Bearer hf_..."
+      }
+    }
+  }
+}
+```
+
+---
+
+## Desktop Client
+
+A standalone PySide6 desktop client is included: `mcp_desktop.py`
+
+```bash
+pip install PySide6 httpx
+python mcp_desktop.py
+```
+
+Features: Chat tab, Tools inspector, Settings (provider/model override, font size), Logs — all saved locally in `~/.mcp_desktop.json`. Token never leaves your machine except to your own Hub.
+
+---
+
+## Architecture
+
+```
+        └── main.py  ← Guardian: bootstraps all services, controls injection
+              └── app/app.py  ← Orchestrator
+                    ├── app/mcp.py       ← MCP SSE server (FastMCP + Quart)
+                    ├── app/tools.py     ← Tool registry (from .pyfun)
+                    ├── app/providers.py ← LLM + Search execution + fallback
+                    ├── app/models.py    ← Model limits + costs
+                    ├── app/db_sync.py   ← Internal SQLite state (IPC)
+                    └── app/config.py    ← .pyfun parser (single source of truth)
+```
+
+**The Guardian pattern:** `app/*` never touches `os.environ`, `.env`, or `fundaments/` directly. Everything is injected by `main.py` as a validated `fundaments` dict. The sandbox is structural — not optional.
+
+---
+
+## Configuration (.pyfun)
+
+All app behavior is configured via `app/.pyfun` — a structured, human-readable config format:
+
+```ini
+[LLM_PROVIDER.anthropic]
+active           = "true"
+env_key          = "ANTHROPIC_API_KEY"
+default_model    = "claude-haiku-4-5-20251001"
+fallback_to      = "gemini"
+[LLM_PROVIDER.anthropic_END]
+
+[TOOL.llm_complete]
+active           = "true"
+provider_type    = "llm"
+default_provider = "anthropic"
+timeout_sec      = "60"
+[TOOL.llm_complete_END]
+```
+
+Add a new tool = edit `.pyfun` only. No code changes required.
+
+---
+
+## Security Design
+
+- All API keys via HF Space Secrets — never hardcoded, never in `.pyfun`
+- `list_active_tools` returns key **names** only, never values
+- DB tools are `SELECT`-only, enforced at application level
+- Direct execution of `app/*` is blocked by design
+- `app/*` has zero access to `fundaments/` internals
+- Built on [PyFundaments](PyFundaments.md) — security-first Python architecture
+
+> PyFundaments is not perfect. But it's more secure than most of what runs in production today.
 
 ---
 
 ## Foundation
 
-* Based on:
-
-  * [PyFundaments](PyFundaments.md)
-  * [PyFundaments – Function Overview](Fundaments-–-Function---Overview.md)
-
-* Project details:
-
-  * [README_MCP_HUB.md](README_MCP_HUB.md)
+- [PyFundaments](PyFundaments.md) — Security-first Python boilerplate
+- [PyFundaments Function Overview](Fundaments-–-Function---Overview.md)
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+- [SECURITY.md](SECURITY.md)
 
 ---
 
-## Documentation
+## History
 
-* [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-* [SECURITY.md](SECURITY.md)
-* [CODEY_STAR_REPORT.md](CODEY_STAR_REPORT.md)
+[ShellMaster](https://github.com/VolkanSah/ChatGPT-ShellMaster) (2023, archived, MIT) was the precursor — a browser-accessible shell for ChatGPT with session memory via `/tmp/shellmaster_brain.log`, built before MCP was a word. Universal MCP Hub is its natural evolution.
 
 ---
 
 ## License
 
-This work is dual-licensed under:
+Dual-licensed:
 
-* [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
-* [Ethical Security Operations License (ESOL v1.1)](ESOL)
+- [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- [Ethical Security Operations License v1.1 (ESOL)](ESOL) — mandatory, non-severable
 
-The ESOL is a mandatory, non-severable condition of use.
-By using this software, you agree to all ethical constraints defined in the ESOL v1.1.
+By using this software you agree to all ethical constraints defined in ESOL v1.1. Misuse may result in automatic license termination and legal liability.
 
+---
+
+*Architecture, security decisions, and PyFundaments by Volkan Kücükbudak. Built with Claude (Anthropic) as a typing assistant.*
