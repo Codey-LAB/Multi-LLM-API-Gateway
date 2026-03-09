@@ -86,6 +86,7 @@ For private Spaces, add your HF token:
 ---
 
 ## Desktop Client
+#### Perfect for non-public spaces
 
 A standalone PySide6 desktop client is included: `mcp_desktop.py`
 
