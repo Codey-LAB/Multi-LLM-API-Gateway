@@ -1,5 +1,5 @@
 # =============================================================================
-# app/app.py
+# root/app/app.py
 # Universal MCP Hub (Sandboxed) - based on PyFundaments Architecture
 # Copyright 2026 - Volkan Kücükbudak
 # Apache License V. 2 + ESOL 1.1
@@ -18,7 +18,6 @@
 #   - app/* internal state/IPC uses app/db_sync.py (SQLite) — NOT postgresql.py
 #   - Secrets stay in .env → Guardian reads them → never touched by app/*
 # =============================================================================
-
 from quart import Quart, request, jsonify  # async Flask — ASGI compatible
 import logging
 from hypercorn.asyncio import serve        # ASGI server — async native, replaces waitress
@@ -29,47 +28,41 @@ import time
 from datetime import datetime
 import asyncio
 from typing import Dict, Any, Optional
-
 # =============================================================================
-# Import app/* modules — MINIMAL BUILD (uncomment when module is ready)
+# Import app/* modules — MINIMAL BUILD
 # Each module reads its own config from app/.pyfun independently.
 # NO fundaments passed into these modules!
 # =============================================================================
 from . import mcp                   # MCP transport layer (SSE via Quart route)
 from . import config as app_config  # app/.pyfun parser — used only in app/*
-# from . import providers    # API provider registry — reads app/.pyfun
-# from . import models       # Model config + token/rate limits — reads app/.pyfun
-# from . import tools        # MCP tool definitions + provider mapping — reads app/.pyfun
-# from . import db_sync      # Internal SQLite IPC — app/* state & communication
-#                            # db_sync ≠ postgresql.py! Cloud DB is Guardian-only.
-
-# Future modules (uncomment when ready):
+from . import providers    # API provider registry — reads app/.pyfun
+from . import models       # Model config + token/rate limits — reads app/.pyfun
+from . import tools        # MCP tool definitions + provider mapping — reads app/.pyfun
+from . import db_sync      # Internal SQLite IPC — app/* state & communication
+#                          # db_sync ≠ postgresql.py! Cloud DB is Guardian-only.
+# Future modules (will uncomment when ready):
 # from . import discord_api  # Discord bot integration
 # from . import hf_hooks     # HuggingFace Space hooks
 # from . import git_hooks    # GitHub/GitLab webhook handler
 # from . import web_api      # Generic REST API handler
-
 # =============================================================================
 # Loggers — one per module for clean log filtering
 # =============================================================================
 logger        = logging.getLogger('application')
 logger_mcp    = logging.getLogger('mcp')
 logger_config = logging.getLogger('config')
-# logger_tools     = logging.getLogger('tools')
-# logger_providers = logging.getLogger('providers')
-# logger_models    = logging.getLogger('models')
-# logger_db_sync   = logging.getLogger('db_sync')
-
+logger_tools     = logging.getLogger('tools')
+logger_providers = logging.getLogger('providers')
+logger_models    = logging.getLogger('models')
+logger_db_sync   = logging.getLogger('db_sync')
 # =============================================================================
 # Quart app instance
 # =============================================================================
 app = Quart(__name__)
 START_TIME = datetime.utcnow()
-
 # =============================================================================
 # Quart Routes
 # =============================================================================
-
 @app.route("/", methods=["GET"])
 async def health_check():
     """
@@ -86,14 +79,33 @@ async def health_check():
 
 @app.route("/api", methods=["POST"])
 async def api_endpoint():
-    """
-    Generic REST API endpoint for direct tool invocation.
-    Accepts JSON: { "tool": "tool_name", "params": { ... } }
-    Auth and validation handled by tools layer.
-    """
-    # TODO: implement tool dispatch via tools.invoke()
-    data = await request.get_json()
-    return jsonify({"status": "not_implemented", "received": data}), 501
+    try:
+        data      = await request.get_json()
+        tool_name = data.get("tool")
+        params    = data.get("params", {})
+
+        # System tools — handle directly, no prompt needed!
+        if tool_name == "list_active_tools":
+            return jsonify({"result": {
+                "active_tools":            tools.list_all(),
+                "active_llm_providers":    providers.list_active_llm(),
+                "active_search_providers": providers.list_active_search(),
+                "available_models":        models.list_all(),
+            }})
+
+        if tool_name == "health_check":
+            return jsonify({"result": {"status": "ok"}})
+
+        # rename 'provider' → 'provider_name' for tools.run()
+        if "provider" in params:
+            params["provider_name"] = params.pop("provider")
+
+        result = await tools.run(tool_name, **params)
+        return jsonify({"result": result})
+
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/crypto", methods=["POST"])
@@ -132,11 +144,6 @@ async def mcp_endpoint():
 # async def git_webhook():
 #     """GitHub / GitLab webhook handler."""
 #     pass
-
-
-
-
-
 # =============================================================================
 # Main entry point — called exclusively by Guardian (main.py)
 # =============================================================================
@@ -183,12 +190,14 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
     # Initialize app/* internal services — MINIMAL BUILD
     # Uncomment each line when the module is ready!
     # =========================================================================
-    # db_sync.initialize()    # SQLite IPC store for app/* — unrelated to postgresql.py
-    # providers.initialize()  # reads app/.pyfun [LLM_PROVIDERS] [SEARCH_PROVIDERS] # in mcp_init
-    # models.initialize()     # reads app/.pyfun [MODELS] # in mcp_init
-    # tools.initialize()      # reads app/.pyfun [TOOLS]
+    # await db_sync.initialize()    # SQLite IPC store for app/* — unrelated to postgresql.py
+    # await providers.initialize()  # reads app/.pyfun [LLM_PROVIDERS] [SEARCH_PROVIDERS] # in mcp_init
+    # await models.initialize()     # reads app/.pyfun [MODELS] # in mcp_init
+    # await tools.initialize()      # reads app/.pyfun [TOOLS]
 
     # --- Initialize MCP (registers tools, prepares SSE handler) ---
+    # db_sync only if cloud_DB used to! 
+    await db_sync.initialize()
     await mcp.initialize()
 
     # --- Read PORT from app/.pyfun [HUB] ---
@@ -203,7 +212,6 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
 
     # --- Run hypercorn — blocks until shutdown ---
     await serve(app, config)
-
 
 # =============================================================================
 # Direct execution guard
