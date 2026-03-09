@@ -119,7 +119,8 @@ UMH
 │   ├── provider.py   ← LLM + Search execution + fallback
 │   ├── models.py     ← Model limits + costs
 │   ├── db_sync.py    ← Internal SQLite state (IPC)
-│   └── config.py     ← .pyfun parser (single source of truth)
+│   ├── config.py     ← .pyfun parser (single source of truth)
+│   └── .pyfun        ←  single source of truth
 ├── fundaments/ # do not touch!
 │   ├── __init__.py
 │   ├── access_control.py
@@ -137,19 +138,6 @@ UMH
 
 
 
-```
-
-
-
-```
-        └── main.py  ← Guardian: bootstraps all services, controls injection
-              └── app/app.py  ← Orchestrator
-                    ├── app/mcp.py       ← MCP SSE server (FastMCP + Quart)
-                    ├── app/tools.py     ← Tool registry (from .pyfun)
-                    ├── app/providers.py ← LLM + Search execution + fallback
-                    ├── app/models.py    ← Model limits + costs
-                    ├── app/db_sync.py   ← Internal SQLite state (IPC)
-                    └── app/config.py    ← .pyfun parser (single source of truth)
 ```
 
 **The Guardian pattern:** `app/*` never touches `os.environ`, `.env`, or `fundaments/` directly. Everything is injected by `main.py` as a validated `fundaments` dict. The sandbox is structural — not optional.
