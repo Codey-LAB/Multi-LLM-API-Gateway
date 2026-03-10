@@ -1,16 +1,15 @@
-## Datei: `app/mcp.py`
+## File: `app/mcp.py`
 
-**Beschreibung:** Dieses Modul implementiert den **Model Context Protocol (MCP)** Server auf Basis von `FastMCP`. Es dient als Kommunikations-Schnittstelle (SSE) und registriert die Tools, die für LLMs oder andere Clients verfügbar gemacht werden.
+**Description:** This module implements the **Model Context Protocol (MCP)** server using `FastMCP`. It serves as the SSE communication interface and registers the tools made available to LLMs and other MCP-compatible clients.
 
-### Hauptfunktionen:
+### Main Functions
 
-* **`initialize()`**: Erstellt die MCP-Instanz, lädt die Konfiguration und stößt die Registrierung der Tool-Kategorien (LLM, Search, System) an.
-* **`handle_request()`**: Der zentrale Einstiegspunkt für eingehende Anfragen vom Quart-Webserver. Hier können Logging, Authentifizierung oder Rate-Limiting für den gesamten MCP-Traffic implementiert werden.
-* **`_register_llm_tools()`**: Registriert das `llm_complete`-Tool, sofern aktive LLM-Provider vorhanden sind. Die Logik wird dabei komplett an `tools.py` delegiert.
-* **`_register_search_tools()`**: Registriert das `web_search`-Tool für Internetabfragen (sobald Provider konfiguriert sind).
-* **`_register_system_tools()`**: Stellt "einfache" Tools bereit, die keine API-Keys benötigen, wie `list_active_tools`, `health_check` und `get_model_info`.
+- **`initialize()`**: Creates the MCP instance, loads configuration, and triggers tool registration across all categories (LLM, Search, System).
+- **`handle_request()`**: The central entry point for incoming requests from the Quart web server. This is where logging, authentication, or rate limiting for all MCP traffic can be implemented.
+- **`_register_llm_tools()`**: Registers the `llm_complete` tool if active LLM providers are available. All logic is fully delegated to `tools.py`.
+- **`_register_search_tools()`**: Registers the `web_search` tool for web queries (once providers are configured).
+- **`_register_system_tools()`**: Provides tools that require no API keys: `list_active_tools`, `health_check`, and `get_model_info`.
 
-### Kern-Logik:
+### Core Logic
 
-Die Datei folgt dem **Delegations-Prinzip**: `mcp.py` definiert lediglich *was* nach außen hin als Tool sichtbar ist, führt aber selbst keine Logik aus. Die tatsächliche Arbeit wird an `tools.py` und `providers.py` weitergereicht. Durch diesen Aufbau bleibt die MCP-Schnittstelle stabil, auch wenn du im Hintergrund neue Provider hinzufügst.
-
+The file follows the **delegation principle**: `mcp.py` only defines *what* is visible externally as a tool — it executes no logic itself. All actual work is handed off to `tools.py` and `providers.py`. This keeps the MCP interface stable even as new providers are added in the background.
