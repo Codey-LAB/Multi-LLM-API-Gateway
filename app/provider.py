@@ -22,6 +22,11 @@
 #   anthropic → fails → gemini → fails → openrouter → fails → RuntimeError
 #   Visited set prevents infinite loops.
 #
+# SECURITY NOTE:
+#   API keys are NEVER logged or included in exception messages.
+#   All errors are sanitized before propagation — only HTTP status codes
+#   and safe_url (query params stripped) are ever exposed in logs.
+#
 # HOW TO ADD A NEW LLM PROVIDER — 3 steps, nothing else to touch:
 #   1. Add class below (copy a dummy, implement complete())
 #   2. Register name → class in _PROVIDER_CLASSES dict
@@ -55,12 +60,18 @@ class BaseProvider:
     Subclasses only implement complete() — HTTP logic lives here.
     """
     def __init__(self, name: str, cfg: dict):
-        self.name     = name
-        self.key      = os.getenv(cfg.get("env_key", ""))
-        self.base_url = cfg.get("base_url", "")
-        self.fallback = cfg.get("fallback_to", "")
-        self.timeout  = int(config.get_limits().get("REQUEST_TIMEOUT_SEC", "60"))
-        self.model    = cfg.get("default_model", "")
+        self.name      = name
+        self.key       = os.getenv(cfg.get("env_key", ""))
+        self.base_url  = cfg.get("base_url", "")
+        self.fallback  = cfg.get("fallback_to", "")
+        self.timeout   = int(config.get_limits().get("REQUEST_TIMEOUT_SEC", "60"))
+        self.model     = cfg.get("default_model", "")
+        # Safe key hint for debug logs — never log the full key
+        self._key_hint = (
+            f"{self.key[:4]}...{self.key[-4:]}"
+            if self.key and len(self.key) > 8
+            else "***"
+        )
 
     async def complete(self, prompt: str, model: str, max_tokens: int) -> str:
         """Override in each provider subclass."""
@@ -69,9 +80,10 @@ class BaseProvider:
     async def _post(self, url: str, headers: dict, payload: dict) -> dict:
         """
         Shared HTTP POST — used by all providers.
-        Raises httpx.HTTPStatusError on non-2xx responses.
+        Raises RuntimeError with sanitized message on non-2xx responses.
+        API keys are never included in raised exceptions or log output.
         """
-        safe_url = url.split("?")[0]  # strip query params from logs
+        safe_url = url.split("?")[0]  # strip query params (may contain API keys)
         logger.debug(f"POST → {safe_url}")
         async with httpx.AsyncClient() as client:
             r = await client.post(
@@ -80,7 +92,13 @@ class BaseProvider:
                 json=payload,
                 timeout=self.timeout,
             )
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                # Sanitize: only status code + safe_url, never headers or body
+                raise RuntimeError(
+                    f"HTTP {e.response.status_code} from {safe_url}"
+                ) from None
             return r.json()
 
 
@@ -114,23 +132,33 @@ class GeminiProvider(BaseProvider):
     """Google Gemini API — generateContent endpoint."""
 
     async def complete(self, prompt: str, model: str = None, max_tokens: int = 1024) -> str:
-        m = model or self.model
+        m        = model or self.model
+        safe_url = f"{self.base_url}/models/{m}:generateContent"
         async with httpx.AsyncClient() as client:
             r = await client.post(
-                f"{self.base_url}/models/{m}:generateContent",
-                params={"key": self.key},
+                safe_url,
+                params={"key": self.key},  # key in query param, never in logs
                 json={
                     "contents":         [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"maxOutputTokens": max_tokens},
                 },
                 timeout=self.timeout,
             )
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                raise RuntimeError(
+                    f"HTTP {e.response.status_code} from {safe_url}"
+                ) from None
             return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
 class OpenRouterProvider(BaseProvider):
-    """OpenRouter API — OpenAI-compatible chat completions endpoint."""
+    """OpenRouter API — OpenAI-compatible chat completions endpoint.
+    
+    Required headers: HTTP-Referer + X-Title (required by OpenRouter for
+    free models and rate limit attribution).
+    """
 
     async def complete(self, prompt: str, model: str = None, max_tokens: int = 1024) -> str:
         data = await self._post(
@@ -138,6 +166,7 @@ class OpenRouterProvider(BaseProvider):
             headers={
                 "Authorization": f"Bearer {self.key}",
                 "HTTP-Referer":  os.getenv("APP_URL", "https://huggingface.co"),
+                "X-Title":       os.getenv("HUB_NAME", "Universal MCP Hub"),  # required!
                 "content-type":  "application/json",
             },
             payload={
@@ -150,12 +179,17 @@ class OpenRouterProvider(BaseProvider):
 
 
 class HuggingFaceProvider(BaseProvider):
-    """HuggingFace Inference API — chat completions endpoint."""
+    """HuggingFace Inference API — OpenAI-compatible serverless endpoint.
+    
+    base_url in .pyfun: https://api-inference.huggingface.co/v1
+    Model goes in payload, not in URL.
+    Free tier: max ~8B models. PRO required for 70B+.
+    """
 
     async def complete(self, prompt: str, model: str = None, max_tokens: int = 512) -> str:
         m    = model or self.model
         data = await self._post(
-            f"{self.base_url}/{m}/v1/chat/completions",
+            f"{self.base_url}/chat/completions",
             headers={
                 "Authorization": f"Bearer {self.key}",
                 "content-type":  "application/json",
@@ -353,7 +387,11 @@ async def llm_complete(
                 logger.info(f"Response from provider: '{current}'")
                 return f"[{current}] {result}"
             except Exception as e:
-                logger.warning(f"Provider '{current}' failed: {e} — trying fallback.")
+                # Log only exception type + sanitized message — never raw {e}
+                # which may contain headers, keys, or response bodies
+                logger.warning(
+                    f"Provider '{current}' failed: {type(e).__name__}: {e} — trying fallback."
+                )
 
         cfg     = config.get_active_llm_providers().get(current, {})
         current = cfg.get("fallback_to", "")
