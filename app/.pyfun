@@ -83,18 +83,18 @@ SEARCH_TIMEOUT_SEC      = "30"
   active              = "true"
   base_url            = "https://openrouter.ai/api/v1"
   env_key             = "OPENROUTER_API_KEY"      # → .env: OPENROUTER_API_KEY=sk-or-...
-  default_model       = "mistralai/mistral-7b-instruct"
-  models              = "openai/gpt-4o, meta-llama/llama-3-8b-instruct, mistralai/mistral-7b-instruct"
+  default_model       = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+  models              = "openai/gpt-4o, meta-llama/llama-3-8b-instruct, mistralai/mistral-7b-instruct, cognitivecomputations/dolphin-mistral-24b-venice-edition:free, deepseek/deepseek-chat-v3.1:free, nvidia/nemotron-nano-9b-v2:free, google/gemma-3-27b-it:free, openai/gpt-oss-20b:free, qwen/qwen3-coder:free, qwen/qwen2.5-vl-72b-instruct:free, nousresearch/deephermes-3-llama-3-8b-preview:free, mistralai/Mistral-7B-Instruct-v0.3, meta-llama/Llama-3.3-70B-Instruct"
   fallback_to         = ""                        # last in chain, no further fallback
   [LLM_PROVIDER.openrouter_END]
 
   [LLM_PROVIDER.huggingface]
-  active              = "true"
-  base_url            = "https://api-inference.huggingface.co/models"
-  env_key             = "HF_TOKEN"                # → .env: HF_TOKEN=hf_...
-  default_model       = "mistralai/Mistral-7B-Instruct-v0.3"
-  models              = "mistralai/Mistral-7B-Instruct-v0.3, meta-llama/Llama-3.3-70B-Instruct"
-  fallback_to         = ""
+  active             = "true"
+  base_url           = "https://api-inference.huggingface.co/models"
+  env_key            = "HF_TOKEN"                # → .env: HF_TOKEN=hf_...
+  default_model      = "meta-llama/Llama-3.3-70B-Instruct"
+  models             = "meta-llama/Llama-3.3-70B-Instruct, mistralai/Mistral-7B-Instruct-v0.3, google/gemma-3-27b-it, microsoft/phi-4, HuggingFaceH4/zephyr-7b-beta, tiiuae/falcon-7b-instruct"
+  fallback_to        = ""
   [LLM_PROVIDER.huggingface_END]
 
   # ── Add more LLM providers below ──────────────────────────────────────────
@@ -261,7 +261,7 @@ SEARCH_TIMEOUT_SEC      = "30"
   cost_input_per_1k   = "0.00010"
   cost_output_per_1k  = "0.00040"
   capabilities        = "text, code, vision, audio"
-  [MODEL.gemini-2.0-flash_END]
+  [MODEL.gemini-2.0-flash-lite_END]
 
 
   [MODEL.gemini-2.0-flash]
@@ -286,6 +286,116 @@ SEARCH_TIMEOUT_SEC      = "30"
   cost_output_per_1k  = "0.00006"
   capabilities        = "text, code, fast, cheap"
   [MODEL.mistral-7b-instruct_END]
+  
+  [MODEL.dolphin-mistral-24b-venice-edition]
+  provider            = "openrouter"
+  context_tokens      = "32768"
+  max_output_tokens   = "4096"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "uncensored, text, code, fast, very cheap"
+  [MODEL.dolphin-mistral-24b-venice-edition_END]
+
+  [MODEL.deepseek-chat-v3.1]
+  provider            = "openrouter"
+  context_tokens      = "163840"
+  max_output_tokens   = "8192"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, reasoning, fast, free"
+  [MODEL.deepseek-chat-v3.1_END]
+
+  [MODEL.nvidia-nemotron-nano-9b-v2]
+  provider            = "openrouter"
+  context_tokens      = "131072"
+  max_output_tokens   = "4096"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, reasoning, fast, free"
+  [MODEL.nvidia-nemotron-nano-9b-v2_END]
+
+  [MODEL.gemma-3-27b-it]
+  provider            = "openrouter"
+  context_tokens      = "131072"
+  max_output_tokens   = "8192"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, vision, multilingual, free"
+  [MODEL.gemma-3-27b-it_END]
+
+  [MODEL.gpt-oss-20b]
+  provider            = "openrouter"
+  context_tokens      = "128000"
+  max_output_tokens   = "4096"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, free"
+  [MODEL.gpt-oss-20b_END]
+
+  [MODEL.qwen3-coder]
+  provider            = "openrouter"
+  context_tokens      = "262144"
+  max_output_tokens   = "8192"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, agentic, long-context, free"
+  [MODEL.qwen3-coder_END]
+
+  [MODEL.qwen2.5-vl-72b-instruct]
+  provider            = "openrouter"
+  context_tokens      = "131072"
+  max_output_tokens   = "8192"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, vision, multilingual, free"
+  [MODEL.qwen2.5-vl-72b-instruct_END]
+
+  [MODEL.deephermes-3-llama-3-8b-preview]
+  provider            = "openrouter"
+  context_tokens      = "131072"
+  max_output_tokens   = "4096"
+  requests_per_min    = ""
+  requests_per_day    = ""
+  cost_input_per_1k   = "0.00000"
+  cost_output_per_1k  = "0.00000"
+  capabilities        = "text, code, reasoning, uncensored, free"
+  [MODEL.deephermes-3-llama-3-8b-preview_END]
+
+  [MODEL.Mistral-7B-Instruct-v0.3]
+  provider            = "openrouter"
+  context_tokens      = "32768"
+  max_output_tokens   = "4096"
+  requests_per_min    = "60"
+  requests_per_day    = "10000"
+  cost_input_per_1k   = "0.00006"
+  cost_output_per_1k  = "0.00006"
+  capabilities        = "text, code, fast, cheap"
+  [MODEL.Mistral-7B-Instruct-v0.3_END]
+
+  [MODEL.Llama-3.3-70B-Instruct]
+  provider            = "openrouter"
+  context_tokens      = "131072"
+  max_output_tokens   = "8192"
+  requests_per_min    = "60"
+  requests_per_day    = "10000"
+  cost_input_per_1k   = "0.00012"
+  cost_output_per_1k  = "0.00030"
+  capabilities        = "text, code, reasoning, multilingual"
+  [MODEL.Llama-3.3-70B-Instruct_END]
 
 [MODELS_END]
 
