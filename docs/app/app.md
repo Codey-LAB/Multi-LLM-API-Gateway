@@ -1,18 +1,16 @@
-## Datei: `app/app.py`
+## File: `app/app.py`
 
-**Beschreibung:** Dies ist der **Orchestrator** der gesamten Sandbox-Anwendung. Die Datei fungiert als zentrale Schaltstelle, die den Webserver (Quart/Hypercorn) startet, die internen Module initialisiert und die Kommunikation nach außen (API & MCP) verwaltet.
+**Description:** This is the **Orchestrator** of the entire sandboxed application. It acts as the central control point — starting the web server (Quart/Hypercorn), initializing internal modules, and managing all external communication (API & MCP).
 
-### Hauptfunktionen:
+### Main Functions
 
-* **`start_application()`**: Die Haupt-Einstiegsfunktion. Sie wird vom "Guardian" (`main.py`) aufgerufen und nimmt die injizierten Basis-Dienste (`fundaments`) entgegen. Hier wird entschieden, welche Features (Verschlüsselung, Auth, DB) basierend auf der Verfügbarkeit dieser Dienste aktiviert werden.
-* **API-Endpoints**:
-* **`/` (Health Check)**: Liefert Uptime und Status für Monitoring-Systeme (wichtig für HuggingFace Spaces).
-* **`/api`**: Ein generischer REST-Einstiegspunkt, um Tools direkt via JSON-POST anzusprechen (z. B. für Systemabfragen oder manuelle Tool-Tests).
-* **`/mcp`**: Der kritische Pfad für den **MCP SSE Transport**. Hier fließen alle Protokoll-Daten des Model Context Protocols durch.
+- **`start_application()`**: The main entry point. Called exclusively by the Guardian (`main.py`), it receives the injected foundation services (`fundaments`) and decides which features (encryption, auth, DB) are activated based on service availability.
+- **API Endpoints**:
+  - **`/` (Health Check)**: Returns uptime and status for monitoring systems (required for HuggingFace Spaces).
+  - **`/api`**: A generic REST entry point for invoking tools directly via JSON POST (e.g. for system queries or manual tool tests).
+  - **`/mcp`**: The critical path for **MCP SSE Transport** — all Model Context Protocol data flows through here.
+- **Server Management**: Uses **Hypercorn** (an async ASGI server) to run the Quart app in a fully native async environment.
 
+### Core Logic
 
-* **Server-Management**: Nutzt **Hypercorn** (ein asynchroner ASGI-Server), um die Quart-App performant und nativ asynchron zu betreiben.
-
-### Kern-Logik:
-
-Die `app.py` setzt die **Sandbox-Regeln** strikt durch. Sie ist der einzige Ort, an dem die globalen `fundaments` (wie der PostgreSQL-Zugriff oder Verschlüsselungs-Keys) kurzzeitig existieren. Sie werden jedoch **nicht** an Untermodule wie `providers.py` oder `tools.py` weitergereicht. Diese Untermodule müssen autark arbeiten und ihre eigene Konfiguration aus der `.pyfun` beziehen.
+`app.py` strictly enforces the **sandbox rules**. It is the only place where the global `fundaments` (such as PostgreSQL access or encryption keys) exist transiently. They are **not** passed down to submodules like `providers.py` or `tools.py` — those modules operate independently and read their own configuration from `.pyfun`.
