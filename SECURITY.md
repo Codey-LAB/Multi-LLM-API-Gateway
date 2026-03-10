@@ -4,7 +4,7 @@
 
 If you find a security issue, please do **not** open a public GitHub issue.
 
-Report privately via: [GitHub Security Advisories](https://github.com/VolkanSah/Universal-MCP-Hub-sandboxed/security/advisories/new)
+Report privately via: [GitHub Security Advisories](https://github.com/VolkanSah/Universal-MCP-Hub/security/advisories/new)
 
 Include: what you found, how to reproduce it, and what impact you think it has. You'll get a response within 72 hours. If the issue is confirmed, a fix will be prioritized before any public disclosure.
 
