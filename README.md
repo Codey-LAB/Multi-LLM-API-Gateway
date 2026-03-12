@@ -223,7 +223,7 @@ Same pattern applies to search providers (`brave → tavily`).
 
 That's it. No config editing. No code changes.
 
-[→ Live Demo Space](https://huggingface.co/spaces/codey-lab/Universal-MCP-Hub-DEMO) (no LLM keys set!)
+[→ Live Demo Space](https://huggingface.co/spaces/codey-lab/Multi-LLM-API-Gateway) (no LLM keys set!)
 
 ### Local / Docker
 
