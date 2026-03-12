@@ -1,12 +1,12 @@
 ---
-title: Universal MCP Hub
+title: Multi-LLM API Gateway
 emoji: 🛡️
 colorFrom: indigo
 colorTo: red
 sdk: docker
 pinned: false
 license: apache-2.0
-short_description: 'Sandboxed Universal MCP Server built on PyFundaments'
+short_description: 'Multi-LLM API Gateway with MCP interface built on PyFundaments'
 ---
 
 # Multi-LLM API Gateway with MCP interface
