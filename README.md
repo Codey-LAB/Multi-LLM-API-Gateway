@@ -6,7 +6,7 @@ colorTo: red
 sdk: docker
 pinned: false
 license: apache-2.0
-short_description: 'Multi-LLM API Gateway with MCP interface built on PyFundaments'
+short_description: 'Multi-LLM API Gateway with MCP'
 ---
 
 # Multi-LLM API Gateway with MCP interface
@@ -16,14 +16,14 @@ short_description: 'Multi-LLM API Gateway with MCP interface built on PyFundamen
 aka: a clean, secure starting point for your own projects.
 Pick the description that fits your use case. They're all correct.
 
-> A production-grade MCP server that actually thinks about security.  
-> Built on [PyFundaments](PyFundaments.md) — running on **simpleCity** and **paranoidMode**.
+> A production-grade - **the-thing** -  that actually thinks about security.  
+> Built on [PyFundaments](PyFundaments.md) — running on **simpleCity**.
 
 ```
 No key → no tool → no crash → no exposed secrets
 ```
 
-Most MCP servers are prompts dressed up as servers. This one has a real architecture.
+:warning:   Most MCP servers are prompts dressed up as servers. This one has a real architecture.
 
 ---
 
@@ -153,7 +153,7 @@ A tool caching a previous LLM response or storing intermediate state between pip
 
 **Cloud DB (postgresql.py):**
 
-Handles the heavy cases — persistent storage, workflow tool results that need to survive restarts, anything that benefits from a real relational DB. Neon-specific quirks are handled automatically: `statement_timeout` is stripped from the DSN (Neon doesn't support it), SSL is enforced at `require` minimum, keepalives are set, and terminated connections trigger an automatic pool restart.
+Handles the heavy cases — persistent storage, workflow tool results that need to survive restarts, anything that benefits from a real relational DB. Neon-specific quirks are handled automatically: `statement_timeout` is stripped from the DSN (e.g. Neon doesn't support it), SSL is enforced at `require` minimum, keepalives are set, and terminated connections trigger an automatic pool restart.
 
 If no `DATABASE_URL` is set, the entire cloud DB layer is skipped cleanly. The app runs without it.
 
@@ -171,13 +171,16 @@ Tools register themselves at startup — only if the required API key exists in 
 | `HF_TOKEN` | `llm_complete` | HuggingFace Inference API |
 | `BRAVE_API_KEY` | `web_search` | Independent web index |
 | `TAVILY_API_KEY` | `web_search` | AI-optimized search with synthesized answers |
-| `DATABASE_URL` | `cloud DB` | e.g. HF
+| `DATABASE_URL` | `cloud DB` | e.g. NEON_DB
 | *(always)* | `list_active_tools` | Shows key names only — never values |
 | *(always)* | `health_check` | Status + uptime |
 | *(always)* | `get_model_info` | Limits, costs, capabilities per model |
 
-**Configured in `.pyfun` — not hardcoded:**
+for more key values see [`.pyfun](app/.pyfun) file
 
+**Configured in `.pyfun` — not hardcoded: your Prompts**
+
+##### example
 ```ini
 [TOOL.code_review]
 active           = "true"
@@ -190,7 +193,7 @@ system_prompt    = "You are an expert code reviewer. Analyze the given code for 
 ```
 
 Current built-in tools: `llm_complete`, `code_review`, `summarize`, `translate`, `web_search`, `db_query`  
-Future hooks (commented, ready): `image_gen`, `code_exec`, `shellmaster`, Discord, GitHub webhooks
+Future hooks (commented, ready): `image_gen`, `code_exec`, `shellmaster_2.0`, Discord, GitHub webhooks
 
 ---
 
@@ -199,7 +202,7 @@ Future hooks (commented, ready): `image_gen`, `code_exec`, `shellmaster`, Discor
 All LLM providers share one `llm_complete` tool. If a provider fails, the hub automatically walks the fallback chain defined in `.pyfun`:
 
 ```
-anthropic → gemini → openrouter → huggingface
+e.g. anthropic → gemini → openrouter → huggingface
 ```
 
 Fallbacks are configured per-provider, not hardcoded:
@@ -214,22 +217,22 @@ fallback_to = "openrouter"
 [LLM_PROVIDER.gemini_END]
 ```
 
-Same pattern applies to search providers (`brave → tavily`).
+Same pattern applies to search providers (`brave → tavily`) aand your owns.
 
 ---
 
 ## Quick Start
 
-### HuggingFace Spaces (recommended)
+### HuggingFace Spaces (recommended) or similar
 
-1. Fork / duplicate this Space
+1. Fork / duplicate this Space/Repo
 2. Go to **Settings → Variables and secrets**
 3. Add the API keys you have (any subset works)
 4. Space starts automatically — only tools with valid keys register
 
 That's it. No config editing. No code changes.
 
-[→ Live Demo Space](https://huggingface.co/spaces/codey-lab/Multi-LLM-API-Gateway) (no LLM keys set!)
+[→ Live SSE-Demo Space](https://huggingface.co/spaces/codey-lab/Multi-LLM-API-Gateway) (no LLM keys set!)
 
 ### Local / Docker
 
@@ -259,6 +262,7 @@ MCP_TRANSPORT="sse"
 ## Connect an MCP Client
 
 ### Claude Desktop / any SSE-compatible client
+> CD - have never use it, please feedback!
 
 ```json
 {
@@ -288,6 +292,7 @@ MCP_TRANSPORT="sse"
 ---
 
 ## Desktop Client
+###### (experementiel ~80 % AI generated)
 
 A full PySide6 desktop client is included in `DESKTOP_CLIENT/hub.py` — ideal for private or non-public Spaces where you don't want to expose the SSE endpoint.
 
@@ -397,7 +402,7 @@ The core stack is intentionally lean. `asyncpg` + `quart` + `hypercorn` + `fastm
 - Direct execution of `app/app.py` is blocked by design — prints a warning and uses a null-fundaments dict
 - `fundaments/` is initialized conditionally — missing services degrade gracefully, they don't crash
 
-> PyFundaments is not perfect. But it's more secure than most of what runs in production today.
+> PyFundaments is not perfect. But it's more secure than most of what runs in production today. 
 
 [→ Full Security Policy](SECURITY.md)
 
@@ -440,6 +445,6 @@ By using this software you agree to all ethical constraints defined in ESOL v1.1
 ---
 
 *Architecture, security decisions, and PyFundaments by Volkan Kücükbudak.*  
-*Built with Claude (Anthropic) as a typing assistant for docs & the occasional bug.*
+*Built with Claude (Anthropic) as a typing assistant for docs (in code, too) & the occasional bug.*
 
 > crafted with passion — just wanted to understand how it works, don't actually need it, have a CLI 😄
