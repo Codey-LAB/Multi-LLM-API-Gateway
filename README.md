@@ -48,6 +48,10 @@ This hub was built as the antidote:
 
 ---
 
+> [!IMPORTANT]
+> This project is under active development — always use the latest release from [Codey Lab Version ](https://github.com/Codey-LAB/Multi-LLM-API-Gateway) *( i mean; more stable builds land here first)*.
+> This repo ([DEV-STATUS](https://github.com/VolkanSah/Multi-LLM-API-Gateway)) is where the chaos happens. 🔬 a ⭐ on the repos will be cool 😙
+
 ## Architecture
 
 ```
