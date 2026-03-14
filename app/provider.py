@@ -106,8 +106,7 @@ class BaseProvider:
 # SECTION 2 — LLM Provider Implementations
 # Only the API-specific parsing logic differs per provider.
 # =============================================================================
-# --- SmolLM2 (Custom Assistant HF Space) ----------------------------------------
-# =============================================================================
+# --- SmolLM2 (Custom Assistant Space) ----------------------------------------
 class SmolLMProvider(BaseProvider):
     """
     SmolLM2 Custom Assistant Space — OpenAI-compatible, ADI routing included.
@@ -142,9 +141,12 @@ class SmolLMProvider(BaseProvider):
         )
         return data["choices"][0]["message"]["content"]
 
-# =============================================================================
-# --- Anthropic (Claude) ------------- ----------------------------------------
-# =============================================================================
+
+
+
+
+
+
 class AnthropicProvider(BaseProvider):
     """Anthropic Claude API — Messages endpoint."""
 
@@ -165,9 +167,7 @@ class AnthropicProvider(BaseProvider):
         )
         return data["content"][0]["text"]
 
-# =============================================================================
-# --- Gemini ------------------------------------------------------------------
-# =============================================================================
+
 class GeminiProvider(BaseProvider):
     """Google Gemini API — generateContent endpoint."""
 
@@ -192,9 +192,7 @@ class GeminiProvider(BaseProvider):
                 ) from None
             return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-# =============================================================================
-# --- OpenRouter --------------------------------------------------------------
-# =============================================================================
+
 class OpenRouterProvider(BaseProvider):
     """OpenRouter API — OpenAI-compatible chat completions endpoint.
     
@@ -219,9 +217,7 @@ class OpenRouterProvider(BaseProvider):
         )
         return data["choices"][0]["message"]["content"]
 
-# =============================================================================
-# --- HuggingFace -------------------------------------------------------------
-# =============================================================================
+
 class HuggingFaceProvider(BaseProvider):
     """HuggingFace Inference API — OpenAI-compatible serverless endpoint.
     
@@ -353,7 +349,7 @@ class HuggingFaceProvider(BaseProvider):
 # =============================================================================
 
 _PROVIDER_CLASSES = {
-    "smollm":      SmolLMProvider,  # ← customs LLM on HF
+    "smollm":      SmolLMProvider,
     "anthropic":   AnthropicProvider,
     "gemini":      GeminiProvider,
     "openrouter":  OpenRouterProvider,

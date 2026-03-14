@@ -1,6 +1,5 @@
 # =============================================================================
 # app/tools.py
-# 09.03.2026
 # Tool Registry — Modular Wrapper
 # Universal MCP Hub (Sandboxed) - based on PyFundaments Architecture
 # Copyright 2026 - Volkan Kücükbudak
@@ -28,6 +27,7 @@ from typing import Any, Dict, Optional
 
 from . import config     # reads app/.pyfun — single source of truth
 from . import providers  # LLM + Search execution + fallback chain
+from . import db_sync
 
 logger = logging.getLogger("tools")
 
@@ -116,9 +116,17 @@ async def run(
 
     # --- DB tools (read-only, delegated to db_sync when ready) ---
     if provider_type == "db":
-        # db_sync not yet implemented — return informative message
-        logger.info("db_query tool called — db_sync.py not yet active.")
-        return "Database query tool is not yet active. Configure db_sync.py first."
+        sql = prompt  # prompt ist hier die SQL-Query
+        return await db_sync.query(sql)
+
+    # in run() — neuer persist-Block:
+    if provider_type == "persist":
+    # hub_state lesen + an PSQL schicken via db_sync bridge
+        key   = tool_cfg.get("state_read_key", "")
+        table = tool_cfg.get("target_table", "hub_results")
+        data  = await db_sync.read(key) if key else {"prompt": prompt}
+        await db_sync.persist(table, data)
+        return f"Persisted to PostgreSQL table '{table}'."
 
     # --- Unknown provider type ---
     logger.warning(f"Tool '{tool_name}' has unknown provider_type '{provider_type}' — skipped.")

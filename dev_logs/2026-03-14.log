@@ -1,0 +1,49 @@
+===== Application Startup at 2026-03-14 17:09:02 =====
+
+2026-03-14 17:09:10,415 - main_app_loader - INFO - Starting main.py...
+2026-03-14 17:09:10,415 - main_app_loader - INFO - Starting conditional initialization of fundament modules...
+2026-03-14 17:09:10,415 - fundaments.postgresql - INFO - DSN used for DB connection (masked): postgresql://ep-small-hat-a9z4zok6-pooler.gwc.azure.neon.tech/neondb?sslmode=require&channel_binding=require&connect_timeout=5&keepalives_idle=60
+2026-03-14 17:09:10,415 - fundaments.postgresql - INFO - Initializing secure database pool...
+2026-03-14 17:09:11,226 - fundaments.postgresql - CRITICAL - CRITICAL ERROR: SSL connection is not active!
+2026-03-14 17:09:11,226 - fundaments.postgresql - WARNING - SSL check via pg_stat_ssl not possible (cloud restriction). Assuming SSL is active due to sslmode=require.
+2026-03-14 17:09:11,318 - fundaments.postgresql - INFO - Secure database pool initialized.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Database service initialized.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Encryption keys not found or using defaults, skipping encryption initialization.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Access Control service initialized.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - User Handler service initialized.
+2026-03-14 17:09:11,318 - security - WARNING - Encryption service not available. Encryption/decryption features will be disabled.
+2026-03-14 17:09:11,318 - security - INFO - Security manager initialized and ready.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Security manager initialized.
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Successfully initialized services: config, db, access_control, user_handler, security
+2026-03-14 17:09:11,318 - main_app_loader - INFO - Fundament modules are ready for the app logic.
+2026-03-14 17:09:11,721 - application - INFO - Application starting...
+2026-03-14 17:09:11,721 - application - INFO - Auth services active (user_handler + security).
+2026-03-14 17:09:11,721 - application - INFO - Access control active.
+2026-03-14 17:09:11,722 - app.config - INFO - .pyfun loaded. Sections: ['HUB', 'HUB_LIMITS', 'PROVIDERS', 'LLM_PROVIDERS', 'SEARCH_PROVIDERS', 'MODELS', 'TOOLS', 'DB_SYNC', 'DEBUG', 'PARSER_PROVIDER']
+2026-03-14 17:09:11,722 - db_sync - INFO - HF Space detected — SQLite relocated to /tmp/.hub_state.db
+2026-03-14 17:09:11,756 - db_sync - INFO - db_sync tables ready.
+2026-03-14 17:09:11,756 - db_sync - INFO - db_sync initialized — path: /tmp/.hub_state.db
+2026-03-14 17:09:11,757 - mcp - INFO - MCP Hub initializing (transport: streamable-http, stateless: True)...
+2026-03-14 17:09:12,286 - providers - INFO - Provider registered: smollm
+2026-03-14 17:09:12,286 - providers - INFO - Provider 'anthropic' skipped — ENV key not set.
+2026-03-14 17:09:12,286 - providers - INFO - Provider registered: gemini
+2026-03-14 17:09:12,286 - providers - INFO - Provider registered: openrouter
+2026-03-14 17:09:12,287 - models - INFO - Models loaded: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'mistral-7b-instruct', 'dolphin-mistral-24b-venice-edition', 'nvidia-nemotron-nano-9b-v2', 'gemma-3-27b-it', 'gpt-oss-20b', 'deephermes-3-llama-3-8b-preview', 'Mistral-7B-Instruct-v0.3', 'Llama-3.3-70B-Instruct', 'smollm2-360m', 'codey-lab/model.universal-mcp-hub']
+2026-03-14 17:09:12,287 - tools - INFO - Tools loaded: ['llm_complete', 'code_review', 'summarize', 'translate', 'web_search', 'db_query']
+2026-03-14 17:09:12,289 - mcp - INFO - Tool registered: llm_complete (active providers: ['smollm', 'gemini', 'openrouter'])
+2026-03-14 17:09:12,289 - mcp - INFO - No active search providers — web_search tool skipped.
+2026-03-14 17:09:12,290 - mcp - INFO - Tool registered: list_active_tools
+2026-03-14 17:09:12,291 - mcp - INFO - Tool registered: health_check
+2026-03-14 17:09:12,294 - mcp - INFO - Tool registered: get_model_info
+2026-03-14 17:09:12,294 - mcp - INFO - MCP Hub initialized. Transport: streamable-http
+2026-03-14 17:09:12,294 - mcp - INFO - MCP ASGI app: Streamable HTTP → /mcp
+2026-03-14 17:09:12,346 - application - INFO - MCP transport: Streamable HTTP → /mcp
+2026-03-14 17:09:12,347 - application - INFO - Starting hypercorn on port 7860...
+2026-03-14 17:09:12,347 - application - INFO - All services running.
+[2026-03-14 17:09:12 +0000] [1] [INFO] Running on http://0.0.0.0:7860 (CTRL + C to quit)
+2026-03-14 17:09:12,349 - hypercorn.error - INFO - Running on http://0.0.0.0:7860 (CTRL + C to quit)
+2026-03-14 17:09:53,501 - providers - WARNING - Provider 'anthropic' not in registry — trying fallback.
+2026-03-14 17:09:54,295 - providers - INFO - Response from provider: 'gemini'
+2026-03-14 17:23:23,143 - providers - INFO - Response from provider: 'smollm'
+2026-03-14 17:23:26,423 - providers - WARNING - Provider 'anthropic' not in registry — trying fallback.
+2026-03-14 17:23:26,942 - providers - INFO - Response from provider: 'gemini'

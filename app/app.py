@@ -55,6 +55,29 @@ logger_tools     = logging.getLogger('tools')
 logger_providers = logging.getLogger('providers')
 logger_models    = logging.getLogger('models')
 logger_db_sync   = logging.getLogger('db_sync')
+
+
+
+# ── NEU: nach den Imports, vor app = Quart(__name__) ──────────────────────────
+
+def _make_mount_middleware(outer_app, path_prefix: str, inner_app):
+    """
+    Minimale ASGI-Middleware: leitet Requests mit path_prefix an inner_app
+    (FastMCP Streamable HTTP) weiter, alles andere geht an outer_app (Quart).
+    Nur aktiv bei HUB_TRANSPORT = "streamable-http".
+    """
+    async def middleware(scope, receive, send):
+        path = scope.get("path", "")
+        if path == path_prefix or path.startswith(path_prefix + "/"):
+            scope = dict(scope)
+            stripped = path[len(path_prefix):] or "/"
+            scope["path"] = stripped
+            scope["raw_path"] = stripped.encode()
+            await inner_app(scope, receive, send)
+        else:
+            await outer_app(scope, receive, send)
+    return middleware
+
 # =============================================================================
 # Quart app instance
 # =============================================================================
@@ -125,16 +148,6 @@ async def crypto_endpoint():
     return jsonify({"status": "not_implemented"}), 501
 
 
-@app.route("/mcp", methods=["GET", "POST"])
-async def mcp_endpoint():
-    """
-    MCP SSE Transport endpoint — routed through Quart/hypercorn.
-    All MCP traffic passes through here — enables interception, logging,
-    auth checks, rate limiting, payload transformation before reaching MCP.
-    """
-    return await mcp.handle_request(request)
-
-
 # Future routes (uncomment when ready):
 # @app.route("/discord", methods=["POST"])
 # async def discord_interactions():
@@ -203,11 +216,39 @@ async def start_application(fundaments: Dict[str, Any]) -> None:
 
     # --- Initialize MCP (registers tools, prepares SSE handler) ---
     # db_sync only if cloud_DB used to! 
+    # PSQL bridge — nur wenn Guardian DB-Service injiziert hat
+    # app.py — bridge-Block:
     await db_sync.initialize()
+
+    if db_service:
+        # asyncpg Pool direkt nutzen — kein execute_secured_query nötig
+        db_sync.set_psql_writer(db_service.execute)
+        logger.info("PostgreSQL bridge active.")
+    else:
+        logger.info("PostgreSQL bridge inactive — no DATABASE_URL configured.")
+
+    
     await mcp.initialize()
 
+    # --- Transport-abhängiges MCP-Routing ---
+    hub_cfg   = app_config.get_hub()
+    transport = hub_cfg.get("HUB_TRANSPORT", "streamable-http").lower()
+
+    if transport == "streamable-http":
+        # ASGI-Mount: FastMCP übernimmt /mcp direkt — kein Quart-Overhead
+        app.asgi_app = _make_mount_middleware(app.asgi_app, "/mcp", mcp.get_asgi_app())
+        logger.info("MCP transport: Streamable HTTP → /mcp")
+    else:
+        # SSE legacy — Quart-Route dynamisch registrieren
+        @app.route("/mcp", methods=["GET", "POST"])
+        async def mcp_endpoint():
+            """MCP SSE legacy transport — interceptor point für auth/logging."""
+            return await mcp.handle_request(request)
+        logger.info("MCP transport: SSE (legacy) → /mcp")
+
+
     # --- Read PORT from app/.pyfun [HUB] ---
-    port = int(app_config.get_hub().get("HUB_PORT", "7860"))
+    port = int(hub_cfg.get("HUB_PORT", "7860"))  # hub_cfg bereits gelesen, kein zweiter get_hub()-Call
 
     # --- Configure hypercorn ---
     config = Config()
