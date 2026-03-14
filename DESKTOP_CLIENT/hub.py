@@ -14,6 +14,7 @@
 #   2. Go to Connect tab → Connect
 #   3. Use Chat tab — select Tool, Provider, Model, upload files
 # =============================================================================
+# 7 Bugs from Claude AI fixed by Human 14.03.2026 but amazing work from ClaudeAi
 
 import sys
 import json
@@ -55,7 +56,9 @@ except ImportError:
 # =============================================================================
 # Local config — saved to ~/.mcp_desktop.json
 # =============================================================================
-CONFIG_PATH = Path.home() / ".mcp_desktop.json"
+
+CONFIG_PATH = Path(__file__).parent / "mcp_desktop.json"
+# old CONFIG_PATH = Path.home() / ".mcp_desktop.json"
 
 def load_config() -> dict:
     """Load local config. Returns defaults if not found."""
@@ -75,11 +78,11 @@ def load_config() -> dict:
     }
 
 def save_config(cfg: dict) -> None:
-    """Save config to ~/.mcp_desktop.json."""
+    """Save config to mcp_desktop.json."""
     try:
         CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[save_config] WARNING: Could not save config: {e}")
 
 
 # =============================================================================
@@ -388,6 +391,8 @@ class MCPDesktop(QMainWindow):
         self._file_cache      = None   # currently loaded file
         self._current_chat_id = None
         self._tools_loading   = False  # prevent duplicate tool fetches
+        self._last_models     = []     # Bug 3 fix: cached models for tool filter
+        self._last_llm_providers = []  # cached providers
 
         self.setWindowTitle("Universal MCP Desktop")
         self.setMinimumSize(1000, 720)
@@ -727,8 +732,14 @@ class MCPDesktop(QMainWindow):
     def _run_in_thread(self, fn):
         """Run in background QThread — list keeps all references alive until done."""
         t = WorkerThread(fn)
-        t.finished.connect(t.deleteLater)
-        t.finished.connect(lambda: self._threads.remove(t) if t in self._threads else None)
+        # Bug 6 fix: safe remove with try/except instead of conditional
+        def _cleanup():
+            try:
+                self._threads.remove(t)
+            except ValueError:
+                pass
+            t.deleteLater()
+        t.finished.connect(_cleanup)
         t.start()
         self._threads.append(t)
 
@@ -744,6 +755,9 @@ class MCPDesktop(QMainWindow):
         idx = self.chat_select.findText(chat_id)
         if idx >= 0:
             self.chat_select.setCurrentIndex(idx)
+        # Bug 1 fix: explicitly set _current_chat_id + clear output
+        self._current_chat_id = chat_id
+        self.chat_output.clear()
 
     def _delete_chat(self):
         """Delete currently selected chat."""
@@ -761,6 +775,9 @@ class MCPDesktop(QMainWindow):
         for chat_id in sorted(self.cfg.get("chats", {}).keys(), reverse=True):
             self.chat_select.addItem(chat_id)
         self.chat_select.blockSignals(False)
+        # Bug 2 fix: manually trigger after unblock so _current_chat_id is always in sync
+        if self.chat_select.count() > 0:
+            self._on_chat_selected(0)
 
     def _on_chat_selected(self, idx: int):
         """Load selected chat into output."""
@@ -865,7 +882,8 @@ class MCPDesktop(QMainWindow):
         self._tools_loading = True
         w = self._make_worker()
         w.tools.connect(self._on_tools)
-        w.error.connect(lambda e: self._log(f"ERROR: {e}"))
+        # Bug 5 fix: release lock on error too
+        w.error.connect(lambda e: setattr(self, '_tools_loading', False) or self._log(f"ERROR: {e}"))
         w.log.connect(self._log)
         self._run_in_thread(w.fetch_tools)
 
@@ -881,6 +899,10 @@ class MCPDesktop(QMainWindow):
 
         # Tool dropdown
         tools = result.get("active_tools", []) if isinstance(result, dict) else []
+        try:
+            self.tool_select.currentTextChanged.disconnect(self._populate_models_for_tool)
+        except RuntimeError:
+            pass  # not yet connected — safe to ignore
         self.tool_select.clear()
         for t in tools:
             self.tool_select.addItem(t)
@@ -894,13 +916,28 @@ class MCPDesktop(QMainWindow):
         for p in result.get("active_llm_providers", []) if isinstance(result, dict) else []:
             self.provider_select.addItem(p)
 
-        # Model dropdown
-        self.model_select.clear()
-        self.model_select.addItem("default")
-        for m in result.get("available_models", []) if isinstance(result, dict) else []:
-            self.model_select.addItem(m)
+        # Bug 3 fix: cache all models for filtering
+        self._last_models = result.get("available_models", []) if isinstance(result, dict) else []
+        self._last_llm_providers = result.get("active_llm_providers", []) if isinstance(result, dict) else []
+
+        # Model dropdown — initial fill
+        self._populate_models_for_tool(self.tool_select.currentText())
+
+        # Bug 4 fix: connect tool change → model filter
+        self.tool_select.currentTextChanged.connect(self._populate_models_for_tool)
 
         self._log(f"Tools loaded: {tools}")
+
+    # LLM tools that need model selection
+    _LLM_TOOLS = {"llm_complete", "code_review", "summarize", "translate"}
+
+    def _populate_models_for_tool(self, tool_name: str):
+        """Filter model dropdown based on selected tool — only LLM tools need models."""
+        self.model_select.clear()
+        self.model_select.addItem("default")
+        if tool_name in self._LLM_TOOLS:
+            for m in getattr(self, "_last_models", []):
+                self.model_select.addItem(m)
 
     def _send_chat(self):
         """Send prompt to Hub — uses Tool/Provider/Model from header dropdowns."""
