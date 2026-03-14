@@ -144,6 +144,7 @@ The `/mcp` route in `app.py` remains the natural interception point regardless o
 
 ## Two Databases — One Architecture
 
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Guardian Layer (fundaments/*)                              │
@@ -178,6 +179,7 @@ The `/mcp` route in `app.py` remains the natural interception point regardless o
 | `sessions` | `fundaments/user_handler.py` | Guardian only |
 | `hub_state` | `app/db_sync.py` | app/* only |
 | `tool_cache` | `app/db_sync.py` | app/* only |
+| `hub_results` | PostgreSQL / Guardian | via `persist_result` tool |
 
 ---
 
@@ -194,6 +196,7 @@ Tools register at startup — only if the required API key exists. No key, no to
 | `BRAVE_API_KEY` | `web_search` | Independent web index |
 | `TAVILY_API_KEY` | `web_search` | AI-optimized search with synthesized answers |
 | `DATABASE_URL` | `cloud DB` | e.g. Neon, Supabase |
+| `DATABASE_URL` | `db_query`, `persist_result` | SQLite read + PostgreSQL write |
 | *(always)* | `list_active_tools` | Shows key names only — never values |
 | *(always)* | `health_check` | Status + uptime + active transport |
 | *(always)* | `get_model_info` | Limits, costs, capabilities per model |
