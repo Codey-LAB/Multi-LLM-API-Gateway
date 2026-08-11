@@ -1,4 +1,3 @@
-# NOT FULL READY! CRAFTING
 
 ---
 title: ⬡ Universal AI Hub 
@@ -10,6 +9,9 @@ pinned: false
 license: apache-2.0
 short_description: 'Secure Multi-LLM Gateway — (Streamable HTTP / SSE)'
 ---
+
+# NOT FULL READY! CRAFTING
+
 
 # ⬡ Universal AI Hub - (+LLM API Gateway)
 
